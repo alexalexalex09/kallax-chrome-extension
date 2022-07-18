@@ -1,0 +1,27 @@
+{
+  "name": "Tabletop Grabber",
+  
+  "version": "0.1.1",
+  
+  "description": "Display the presence or absence of Tabletop Simulator Mods on boardgamegeek.com",
+  
+  "manifest_version": 2,
+
+  "incognito": "split",
+  
+  "permissions": ["https://www.boardgamegeek.com/*", "https://boardgamegeek.com/*", "storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.boardgamegeek.com/*", "https://boardgamegeek.com/*"],
+      "js": ["tabletopGrabber.js"],
+      "css": ["styles.css"]
+    }
+  ],
+  "web_accessible_resources": [
+    "images/*.png"
+  ],
+
+  "icons": {
+    "128": "icon.png"
+  }
+}

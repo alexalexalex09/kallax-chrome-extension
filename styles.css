@@ -1,0 +1,23 @@
+kallaxLogo {
+  position: absolute;
+  width: 1.2rem;
+  height: 1.2rem;
+  transform: translateX(-1.1rem);
+  display: inline-block;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  cursor: pointer;
+}
+
+.kallaxGrey {
+  background-image: url("chrome-extension://__MSG_@@extension_id__/images/piece-grey.png");
+}
+
+.kallaxRed {
+  background-image: url("chrome-extension://__MSG_@@extension_id__/images/piece-red.png");
+}
+
+.kallaxGreen {
+  background-image: url("chrome-extension://__MSG_@@extension_id__/images/piece-green.png");
+}
