@@ -1,24 +1,27 @@
 {
-  "name": "Tabletop Grabber",
+  "name": "Kallax",
   
-  "version": "0.1.1",
+  "version": "0.0.1",
   
-  "description": "Display the presence or absence of Tabletop Simulator Mods on boardgamegeek.com",
+  "description": "Helper extension for Kallax.io",
   
-  "manifest_version": 2,
+  "manifest_version": 3,
 
   "incognito": "split",
   
-  "permissions": ["https://www.boardgamegeek.com/*", "https://boardgamegeek.com/*", "storage"],
+  "permissions": ["storage", "tabs"],
+  "host_permissions": ["https://www.boardgamegeek.com/*", "https://boardgamegeek.com/*", "https://boardgameatlas.com/*", "https://www.boardgameatlas.com/*"],
   "content_scripts": [
     {
-      "matches": ["https://www.boardgamegeek.com/*", "https://boardgamegeek.com/*"],
-      "js": ["tabletopGrabber.js"],
+      "matches": ["https://www.boardgamegeek.com/*", "https://boardgamegeek.com/*",  "https://boardgameatlas.com/*", "https://www.boardgameatlas.com/*"],
+      "js": ["kallax-chrome-extension.js"],
       "css": ["styles.css"]
     }
   ],
-  "web_accessible_resources": [
-    "images/*.png"
+  "web_accessible_resources": [{
+    "resources": ["images/*.png"],
+    "matches": ["https://www.boardgamegeek.com/*", "https://boardgamegeek.com/*", "https://boardgameatlas.com/*", "https://www.boardgameatlas.com/*"]
+  }
   ],
 
   "icons": {

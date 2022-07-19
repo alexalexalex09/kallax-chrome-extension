@@ -1,23 +1,64 @@
 kallaxLogo {
-  position: absolute;
-  width: 1.2rem;
-  height: 1.2rem;
+  position: relative;
+  width: 1em;
+  height: 1em;
   transform: translateX(-1.1rem);
   display: inline-block;
   background-repeat: no-repeat;
   background-position: center;
   background-size: cover;
   cursor: pointer;
+  background-image: url("chrome-extension://__MSG_@@extension_id__/images/kallax-logo-64.png");
 }
 
-.kallaxGrey {
-  background-image: url("chrome-extension://__MSG_@@extension_id__/images/piece-grey.png");
+#kallax-x {
+  text-align: right;
+  cursor: pointer;
 }
 
-.kallaxRed {
-  background-image: url("chrome-extension://__MSG_@@extension_id__/images/piece-red.png");
+#kallax-menu {
+  position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
 }
 
-.kallaxGreen {
-  background-image: url("chrome-extension://__MSG_@@extension_id__/images/piece-green.png");
+#kallax-shadow {
+  background-color: #222c;
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  z-index: 99998;
+}
+
+#kallax-menu-container {
+  background-color: white;
+  width: min(500px, 90%);
+  height: min(200px, 90%);
+  padding: 10px 20px;
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  text-align: center;
+  z-index: 99999;
+}
+
+#kallax-title {
+  font-size: 2em;
+  font-weight: bold;
+}
+
+#kallax-link {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.kallax-hidden {
+  display: none;
 }
