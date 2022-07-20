@@ -116,7 +116,7 @@ const fn = {
           "Content-Type": "application/json",
         },
       };
-      fetch("https://kallax.io/getSingleGameFromTitle", options) //TODO: Use an actual endpoint
+      fetch("https://kallax.io/addGameToKallax", options) //TODO: Use an actual endpoint
         .then((response) => response.text())
         .then((data) => {
           data = data.toString();
@@ -138,16 +138,22 @@ const fn = {
     menuEl.innerHTML = `
     <div id="kallax-menu" class="kallax-hidden">
     <div id="kallax-shadow"></div>
+    <div id="kallax-x" onclick="this.parentElement.parentElement.classList.toggle('kallax-hidden')">X</div>
     <div id="kallax-menu-container">
-        <div id="kallax-x" onclick="this.parentElement.parentElement.classList.toggle('kallax-hidden')">X</div>
-        <div id="kallax-title">Current Game</div>
-        <div id="kallax-me">Checking if owned...</div>
-        <div id="kallax-friends">Checking if owned by friends...</div>
-        <div id="kallax-add">
-            <button>Add to My Collection</button>
+        <div id="kallax-header">
+          <div id="kallax-title">Current Game</div>
         </div>
-        <div id="kallax-link"><a href="https://kallax.io">kallax.io</a></div>
-      </div>
+        <div id="kallax-footer">
+          <div id="kallax-link"><a href="https://kallax.io">kallax.io</a></div>
+        </div>
+        <div id="kallax-body">
+          <div id="kallax-me">Checking if owned...</div>
+          <div id="kallax-friends">Checking if owned by friends...</div>
+          <div id="kallax-add">
+              <button>Add to My Collection</button>
+          </div>
+        </div>        
+      </div>      
     </div>`;
     el.appendChild(menuEl);
   },
@@ -157,6 +163,37 @@ const fn = {
     const title = el.parentElement.querySelector("a").innerText.trim();
     document.querySelector("#kallax-title").innerText = title;
     //TODO: Check Kallax to see if owned by anyone
+    /*this.getKallaxInfo(title).then(function (res) {
+      document.querySelector("#kallax-me").innerText =
+        "You " + res.self ? "own " : "do not own " + "this game";
+      document.querySelector("#kallax-friends").innerText = res.friends
+        ? res.friends
+        : "None" + " of your friends own this game";
+    });*/
     document.querySelector("#kallax-menu").classList.remove("kallax-hidden");
+  },
+  getKallaxInfo: function (title) {
+    var promise = new Promise(function (resolve, reject) {
+      const body = {
+        title: title,
+      };
+      const options = {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+        },
+      };
+      fetch("https://kallax.io/getInfoOnGame", options) //TODO: Use an actual endpoint
+        .then((response) => response.text())
+        .then((data) => {
+          const response = {
+            self: data.ownedByMyself,
+            friends: data.numberOfFriendsWhoOwnThisGame,
+          };
+          resolve(response);
+        });
+    });
+    return promise;
   },
 };
