@@ -1,3 +1,65 @@
+/* Relies on 3 endpoints:
+
+*********************************
+/login:
+*********************************
+Logs the user in to kallax.io
+Parameters:
+  username: String
+  password: String
+
+response expected:
+  jwt: base64 encoded jwt
+
+called by:
+  fn.login()
+
+*********************************
+/getInfoOnGame [to be renamed]
+*********************************
+Reads a specific game from Kallax
+
+
+Parameters:
+  title: String,
+  site: String("BGG"|"BGA"),
+  id: String(id based on site format of the site parameter),
+
+Header:
+  Authorization: "Bearer " + jwt
+
+Response expected:
+  self: Boolean (true if owned by current user)
+  friends: Number (number of friends who own this game)
+  kallaxId: Kallax internal id of the game
+
+called by:
+  fn.getKallaxInfo()
+
+*********************************
+/addGameToKallax [to be renamed]
+*********************************
+Adds the specified game to the user's Kallax collection
+
+
+Parameters:
+  kallaxId: internal Kallax id
+
+Header:
+  Authorization: "Bearer " + jwt
+
+Response expected:
+  succcess: {
+    status: Boolean (true if successful, false if unsuccessful),
+    reason: String (error code if unsuccessful)
+  }
+
+  called by:
+    fn.addToKallax()
+
+
+*/
+
 //Initalize variables
 const BGGWhiteList = [
   "game-header-title-info",
@@ -75,6 +137,70 @@ const fn = {
       }
     });
   },
+  getKallaxInfo: function (title, id) {
+    var promise = new Promise(function (resolve, reject) {
+      chrome.storage.sync.get(["jwt"], function (result) {
+        if (typeof result[jwt] == "undefined") {
+          reject("Not logged in");
+        }
+        const jwt = result[jwt];
+        const body = {
+          title: title,
+          site: id.type,
+          id: id.id,
+        };
+        const options = {
+          method: "POST",
+          body: JSON.stringify(body),
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + jwt,
+          },
+        };
+        fetch("https://kallax.io/getInfoOnGame", options) //TODO: Use an actual endpoint
+          .then((response) => response.text())
+          .then((data) => {
+            const response = {
+              self: data.ownedByMyself,
+              friends: data.numberOfFriendsWhoOwnThisGame,
+              kallaxId: data.KallaxId,
+            };
+            resolve(response);
+          });
+      });
+    });
+    return promise;
+  },
+  addToKallax: function (kallaxId) {
+    //Get the id from local storage based on title, otherwise search kallax
+    console.log("Adding " + title);
+    chrome.storage.sync.get(["jwt"], function (result) {
+      if (typeof result[jwt] == "undefined") {
+        reject("Not logged in");
+      }
+      const jwt = result[jwt];
+      var promise = new Promise(function (resolve, reject) {
+        const body = {
+          kallaxId: kallaxId,
+        };
+        const options = {
+          method: "POST",
+          body: JSON.stringify(body),
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + jwt,
+          },
+        };
+        fetch("https://kallax.io/addGameToKallax", options) //TODO: Use an actual endpoint
+          .then((response) => response.json())
+          .then((data) => {
+            //Store result in Chrome sync
+            resolve(data.success);
+          });
+      });
+    });
+    return promise;
+  },
   filterBGG: function (links) {
     //filter the list of links on Board Game Geek to leave only boardgames
     var boardgames = [];
@@ -82,7 +208,7 @@ const fn = {
       var href = e.getAttribute("href");
       if (
         href != null &&
-        href.search(/\/boardgame\/[0-9]+\/[^\/]*$/) == 0 &&
+        href.search(/\/boardgame.*\/[0-9]+\/[^\/]*$/) == 0 &&
         e.text != "" &&
         e.text != "Shop" &&
         e.offsetParent !== null
@@ -101,45 +227,25 @@ const fn = {
     el.addEventListener("click", fn.showKallaxMenu);
     e[0].parentNode.insertBefore(el, e[0]);
   },
-  addToKallax: function (title, id) {
-    //Get the id from local storage based on title, otherwise search kallax
-    console.log("Adding " + title);
-    var promise = new Promise(function (resolve, reject) {
-      const body = {
-        title: title,
-        id: id,
-      };
-      const options = {
-        method: "POST",
-        body: JSON.stringify(body),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      };
-      fetch("https://kallax.io/addGameToKallax", options) //TODO: Use an actual endpoint
-        .then((response) => response.text())
-        .then((data) => {
-          data = data.toString();
-          //Store result in Chrome sync
-          fn.saveLocal(title, data.id);
-          resolve(data.id);
-        });
-    });
-    return promise;
-  },
-  saveLocal: function (title, id) {
-    //Cache Steam data locally in Chrome sync storage to avoid scraping when possible
+  saveLocal: function (title, kallaxId, owned, friends) {
+    //Cache data locally in Chrome sync storage to avoid scraping when possible
     var toSave = {};
-    toSave[title] = { id: id, date: Date.now() };
+    toSave[title] = {
+      title: title,
+      kallaxId: kallaxId,
+      owned: owned,
+      friends: friends,
+      date: Date.now(),
+    };
     chrome.storage.sync.set(toSave, (res) => {});
   },
   addKallaxMenu: function (el) {
     var menuEl = document.createElement("div");
     menuEl.innerHTML = `
     <div id="kallax-menu" class="kallax-hidden">
-    <div id="kallax-shadow"></div>
-    <div id="kallax-x" onclick="this.parentElement.parentElement.classList.toggle('kallax-hidden')">X</div>
-    <div id="kallax-menu-container">
+      <div id="kallax-shadow"></div>
+      <div id="kallax-menu-container">
+        <div id="kallax-x" onclick="this.parentElement.parentElement.classList.toggle('kallax-hidden')">X</div>
         <div id="kallax-header">
           <div id="kallax-title">Current Game</div>
         </div>
@@ -157,43 +263,49 @@ const fn = {
     </div>`;
     el.appendChild(menuEl);
   },
+  getElementId: function (el) {
+    let id = {};
+    switch (0) {
+      case window.location.href.search(/.*boardgamegeek.*/):
+        //We're at Board Game Geek
+        id = {
+          type: "BGG",
+          id: el.parentElement
+            .querySelector("a")
+            .getAttribute("href")
+            .match(/\/.*\/(\d+)/),
+        };
+        break;
+
+      case window.location.href.search(/.*boardgameatlas.*/):
+        //TODO: We're at Board Game Atlas
+        id = {
+          type: "BGA",
+          id: el.parentElement
+            .querySelector("a")
+            .getAttribute("href")
+            .match(/\/.*\/(\d+)/),
+        };
+        break;
+      default:
+        id = { error: "Ineligible site" };
+    }
+    return id;
+  },
   showKallaxMenu: function (e) {
     const el = e.target;
-    console.log(el);
     const title = el.parentElement.querySelector("a").innerText.trim();
     document.querySelector("#kallax-title").innerText = title;
     //TODO: Check Kallax to see if owned by anyone
-    /*this.getKallaxInfo(title).then(function (res) {
+    /*fn.getKallaxInfo(title, id).then(function (res) {
       document.querySelector("#kallax-me").innerText =
         "You " + res.self ? "own " : "do not own " + "this game";
       document.querySelector("#kallax-friends").innerText = res.friends
         ? res.friends
         : "None" + " of your friends own this game";
-    });*/
-    document.querySelector("#kallax-menu").classList.remove("kallax-hidden");
-  },
-  getKallaxInfo: function (title) {
-    var promise = new Promise(function (resolve, reject) {
-      const body = {
-        title: title,
-      };
-      const options = {
-        method: "POST",
-        body: JSON.stringify(body),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      };
-      fetch("https://kallax.io/getInfoOnGame", options) //TODO: Use an actual endpoint
-        .then((response) => response.text())
-        .then((data) => {
-          const response = {
-            self: data.ownedByMyself,
-            friends: data.numberOfFriendsWhoOwnThisGame,
-          };
-          resolve(response);
-        });
     });
-    return promise;
+    document.querySelector("#kallax-add button").onclick = fn.addToKallax(res.kallaxId);
+    */
+    document.querySelector("#kallax-menu").classList.remove("kallax-hidden");
   },
 };
