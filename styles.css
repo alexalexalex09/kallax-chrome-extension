@@ -20,7 +20,7 @@ kallaxLogo {
   grid-area: 1/2/2/3;
 }
 
-#kallax-menu {
+#kallax-menu, #kallax-login {
   position: absolute;
     top: 0;
     left: 0;
@@ -28,7 +28,7 @@ kallaxLogo {
     height: 100%;
 }
 
-#kallax-shadow {
+#kallax-shadow, #kallax-login-shadow {
   background-color: #222c;
   width: 100%;
   height: 100%;
@@ -36,7 +36,7 @@ kallaxLogo {
   z-index: 99998;
 }
 
-#kallax-menu-container {
+#kallax-menu-container, #kallax-login-container {
   background-image: url("chrome-extension://__MSG_@@extension_id__/images/bkgd-water.png");
   background-size: cover;
   border-radius: 12px;
@@ -69,7 +69,7 @@ kallaxLogo {
 #kallax-body {
   background-color: white;
   border-radius: 0px 0px 10px 10px;
-  padding: 2em 0em 0em 2em;
+  padding: 1em 2em 2em 2em;
   text-align: left;
   grid-area: 4/1/5/3;
 }
@@ -100,6 +100,30 @@ kallaxLogo {
 
 #kallax-link a {
   color: white;
+}
+
+#kallax-profile-id, #kallax-profile-id input, #kallax-login, #kallax-login input, #kallax-login-description {
+  text-align: center
+}
+
+#kallax-profile-id label {
+  width: 100%;
+}
+
+#kallax-profile-id input {
+  width: 6em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+#kallax-login-button {  
+  width: 100%;
+  margin-top: 1em;
+  text-align: center;
+}
+
+#kallax-login-button input {
+  padding: 3px 20px;
 }
 
 .kallax-hidden {
