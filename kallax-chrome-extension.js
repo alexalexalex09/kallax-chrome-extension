@@ -138,7 +138,7 @@ const fn = {
     console.log("Getting Kallax info...");
     var promise = new Promise(function (resolve, reject) {
       chrome.storage.sync.get(["jwt"], function (result) {
-        console.log({ result });
+        console.log({ id });
         if (Object.keys(result).length == 0) {
           reject("Not logged in");
         } else {
@@ -330,7 +330,7 @@ const fn = {
           id: el.parentElement
             .querySelector("a")
             .getAttribute("href")
-            .match(/\/.*\/(\d+)/),
+            .match(/\/.*\/(\d+)/)[1],
         };
         break;
       case window.location.href.search(/.*boardgameatlas.*/):
@@ -340,7 +340,7 @@ const fn = {
           id: el.parentElement
             .querySelector("a")
             .getAttribute("href")
-            .match(/\/.*\/(\d+)/),
+            .match(/\/.*\/(\d+)/)[1],
         };
         break;
       default:
