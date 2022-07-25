@@ -111,7 +111,7 @@ kallaxLogo {
 }
 
 #kallax-profile-id input {
-  width: 6em;
+  width: 100%;
   text-align: center;
   text-transform: uppercase;
 }
@@ -124,6 +124,19 @@ kallaxLogo {
 
 #kallax-login-button input {
   padding: 3px 20px;
+}
+
+#kallax-login-error {
+  color: red;
+  text-align: center;
+  margin-top: .5em;
+  cursor: pointer;
+}
+
+#kallax-login-error-expand {
+  cursor: pointer;
+  font-style: italic;
+  color: initial;
 }
 
 .kallax-hidden {

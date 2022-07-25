@@ -112,14 +112,20 @@ window.addEventListener("load", function () {
 
 const fn = {
   login: function (e) {
-    console.log("Logging in");
     const profileId = document.querySelector("#kallax-profile-id-input").value;
     chrome.storage.sync.set({ jwt: profileId });
+    document.querySelector("#kallax-body").innerHTML = `
+    <div class="kallax-alert">
+      Password saved...
+    </div>`;
+    setTimeout(function () {
+      document.querySelector("#kallax-menu").parentElement.remove();
+    }, 2000);
     /*chrome.storage.sync.get(["jwt"], function (result) {
       if (Object.keys(result).length == 0) {
         //If we're not already logged in, create a fetch request with username and password
         const options = {
-          method: "POST",
+          method: "GET",
           body: JSON.stringify(body),
           headers: {
             "Content-Type": "application/json",
@@ -139,18 +145,14 @@ const fn = {
     var promise = new Promise(function (resolve, reject) {
       chrome.storage.sync.get(["jwt"], function (result) {
         console.log({ id });
+        console.log({ result });
         if (Object.keys(result).length == 0) {
           reject("Not logged in");
         } else {
           if (id.type == "BGG") {
             const jwt = result["jwt"];
-            const body = {
-              title: title,
-              site: id.type,
-            };
             const options = {
-              method: "POST",
-              body: JSON.stringify(body),
+              method: "GET",
               headers: {
                 "Content-Type": "application/json",
                 "x-api-key": jwt,
@@ -163,15 +165,19 @@ const fn = {
             promises.push(
               fetch("https://kallax.io/api/bgg/friendsowns/" + id.id, options)
             );
-            Promise.all(promises).then((responses) => {
-              console.log(responses);
-              const response = {
-                self: responses[0].owned,
-                friends: responses[1].friends.length,
-                kallaxId: responses[0].instances[0].id,
-              };
-              resolve(response);
-            });
+            Promise.all(promises)
+              .then((responses) => {
+                console.log(responses);
+                const response = {
+                  self: responses[0].owned,
+                  friends: responses[1].friends.length,
+                  kallaxId: responses[0].instances[0].id,
+                };
+                resolve(response);
+              })
+              .catch((responses) => {
+                reject(responses);
+              });
           }
         }
       });
@@ -246,7 +252,7 @@ const fn = {
     };
     chrome.storage.sync.set(toSave, (res) => {});
   },
-  showLoginWindow: function () {
+  showLoginWindow: function (error) {
     var loginMenu = document.createElement("div");
     loginMenu.innerHTML = `
     <div id="kallax-menu">
@@ -262,12 +268,19 @@ const fn = {
         <div id="kallax-body">
           <div id="kallax-login-description"><em>(Find your profile ID on your Kallax profile page)</em></div>
           <div id="kallax-profile-id">
-            <label for="kallax-profile-id-input">Enter your Kallax Profile Id</label>
-            <input id="kallax-profile-id-input" type="text" maxlength="5"/>
+            <label for="kallax-profile-id-input">Enter your Kallax Extension Password</label>
+            <input id="kallax-profile-id-input" type="text"/>
           </div>
           <div id="kallax-login-button">
             <input type="submit" value="Login"/>
           </div>
+          <div id="kallax-login-error" onclick="document.querySelector('#kallax-login-error-expand').classList.toggle('kallax-hidden')">${
+            error
+              ? "The previous login attempt failed<div id='kallax-login-error-expand' class='kallax-hidden'>" +
+                error +
+                "</div>"
+              : ""
+          }</div>
         </div>        
       </div>      
     </div>`;
@@ -316,8 +329,8 @@ const fn = {
         addKallaxMenu(title, owned, friends, kallaxId);
       })
       .catch(function (error) {
-        console.log(error);
-        fn.showLoginWindow();
+        console.log({ error });
+        fn.showLoginWindow(error);
       });
   },
   getElementId: function (el) {
