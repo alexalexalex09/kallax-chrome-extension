@@ -155,7 +155,8 @@ const fn = {
         if (Object.keys(result).length == 0) {
           reject("Not logged in");
         } else {
-          if (id.type == "BGG") {
+          if (id.type == "bgg") {
+            console.log("At BGG...");
             const jwt = result["jwt"];
             const options = {
               method: "GET",
@@ -347,21 +348,21 @@ const fn = {
       case window.location.href.search(/.*boardgamegeek.*/):
         //We're at Board Game Geek
         id = {
-          type: "BGG",
+          type: "bgg",
           id: el.parentElement
             .querySelector("a")
             .getAttribute("href")
-            .match(/\/.*\/(\d+)/)[1],
+            .match(/\/.*?\/(\d+)/)[1],
         };
         break;
       case window.location.href.search(/.*boardgameatlas.*/):
         //TODO: We're at Board Game Atlas
         id = {
-          type: "BGA",
+          type: "bga",
           id: el.parentElement
             .querySelector("a")
             .getAttribute("href")
-            .match(/\/.*\/(\d+)/)[1],
+            .match(/\/.*?\/(\d+)/)[1],
         };
         break;
       default:
