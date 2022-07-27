@@ -140,12 +140,18 @@ const fn = {
       }
     });*/
   },
+  streamToString: function (stream) {
+    const chunks = [];
+    return new Promise((resolve, reject) => {
+      stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+      stream.on("error", (err) => reject(err));
+      stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+    });
+  },
   getKallaxInfo: function (title, id) {
     console.log("Getting Kallax info...");
     var promise = new Promise(function (resolve, reject) {
       chrome.storage.sync.get(["jwt"], function (result) {
-        console.log({ id });
-        console.log({ result });
         if (Object.keys(result).length == 0) {
           reject("Not logged in");
         } else {
@@ -158,25 +164,27 @@ const fn = {
                 "x-api-key": jwt,
               },
             };
-            let promises = [];
-            promises.push(
-              fetch("https://kallax.io/api/bgg/owns/" + id.id, options)
-            );
-            promises.push(
-              fetch("https://kallax.io/api/bgg/friendsowns/" + id.id, options)
-            );
-            Promise.all(promises)
-              .then((responses) => {
-                console.log(responses);
+            fetch(
+              "https://kallax.io/api/owns/" +
+                id.id +
+                "?source=" +
+                id.type.toLowerCase(),
+              options
+            )
+              .then(function (response) {
+                return response.json();
+              })
+              .then(function (data) {
+                console.log({ data });
                 const response = {
-                  self: responses[0].owned,
-                  friends: responses[1].friends.length,
-                  kallaxId: responses[0].instances[0].id,
+                  self: data.owned,
+                  friends: data.friends.length,
+                  kallaxId: data.game.id,
                 };
                 resolve(response);
               })
-              .catch((responses) => {
-                reject(responses);
+              .catch((res) => {
+                reject(res);
               });
           }
         }
@@ -300,7 +308,7 @@ const fn = {
       <div id="kallax-menu-container">
         <div id="kallax-x" onclick="this.parentElement.parentElement.parentElement.remove()">X</div>
         <div id="kallax-header">
-          <div id="kallax-title">${title}/div>
+          <div id="kallax-title">${title}</div>
         </div>
         <div id="kallax-footer">
           <div id="kallax-link"><a href="https://kallax.io">kallax.io</a></div>
@@ -326,7 +334,7 @@ const fn = {
     const id = fn.getElementId(el);
     fn.getKallaxInfo(title, id)
       .then(function (res) {
-        addKallaxMenu(title, owned, friends, kallaxId);
+        fn.addKallaxMenu(title, res.self, res.friends, res.kallaxId);
       })
       .catch(function (error) {
         console.log({ error });
