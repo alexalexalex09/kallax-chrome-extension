@@ -62,11 +62,16 @@ Response expected:
 
 //Initalize variables
 const BGGWhiteList = [
-  "game-header-title-info",
-  "geekitem_infotable",
-  "collection_table",
-  "geeklist_item_title",
+  ".game-header-title-info a",
+  "gg-item-link-ui a",
+  ".geekitem_infotable a",
+  ".collection_table a",
+  ".geeklist_item_title a",
+  /*".hotness-item",*/ //This doesn't look good
 ];
+
+const BGAWhiteList = [".card-title", "#game-info h1"];
+
 //chrome.storage.sync.clear();
 
 //Wait until the window is loaded to modify the content
@@ -75,37 +80,43 @@ window.addEventListener("load", function () {
   /***********************/
   /*      For BGG        */
   /***********************/
+  //Get list of all anchor tags
+  console.log("Getting links");
+  var link = [];
+  var boardgames = [];
   if (tabUrl.substring(0, 25) == "https://boardgamegeek.com") {
-    //Get list of all anchor tags
-    console.log("Getting links");
-    var link = [];
     BGGWhiteList.forEach((e) => {
-      link.push(document.querySelectorAll("." + e + " a"));
+      link.push(document.querySelectorAll(e));
     });
-
-    //Filter list to only board game links
-    console.log("Filtering non-boardgames");
-    var boardgames = [];
     link.forEach((e) => {
       boardgames.push(fn.filterBGG(e));
     });
 
     console.log("Placing icons on " + boardgames.length + " elements");
-    //Add a placeholder icon to all board game links
     boardgames.forEach((e) => {
       e.forEach((el) => {
         fn.addLogo(el);
       });
     });
   }
-  /***********************/
-  /*      For BGA        */
-  /***********************/
-  if (tabUrl.substring(0, 30) == "https://www.boardgameatlas.com") {
-    //TODO: Add support for BGA
-  }
-});
 
+  if (tabUrl.substring(0, 30) == "https://www.boardgameatlas.com") {
+    fn.waitForElem(".game-item.subtle-link-area a").then(function () {
+      BGAWhiteList.forEach((e) => {
+        link.push(document.querySelectorAll(e));
+      });
+      link.forEach((e) => {
+        boardgames.push(fn.filterBGA(e));
+      });
+      boardgames.forEach((e) => {
+        e.forEach((el) => {
+          fn.addLogo(el);
+        });
+      });
+    });
+  }
+  //Add a placeholder icon to all board game links
+});
 /***********************/
 /*      Functions      */
 /***********************/
@@ -158,6 +169,7 @@ const fn = {
           if (id.type == "bgg") {
             console.log("At BGG...");
             const jwt = result["jwt"];
+            console.log({ jwt });
             const options = {
               method: "GET",
               headers: {
@@ -173,19 +185,43 @@ const fn = {
               options
             )
               .then(function (response) {
-                return response.json();
+                if (response.status < 200 || response.status > 299) {
+                  var ret = { error: true, code: response.status };
+                  switch (response.status) {
+                    case 500:
+                      ret.message =
+                        "Sorry, this game could not be found. We're working on adding it to our database!";
+                      return ret;
+                      break;
+                    case 401:
+                      ret.message =
+                        "The previous login attempt failed. Please try to log in again.";
+                      return ret;
+                      break;
+                    default:
+                      ret.message = "Error " + response.status;
+                      return ret;
+                  }
+                } else {
+                  return response.json();
+                }
               })
               .then(function (data) {
-                console.log({ data });
-                const response = {
-                  self: data.owned,
-                  friends: data.friends.length,
-                  kallaxId: data.game.id,
-                };
-                resolve(response);
+                if (data.error) {
+                  reject(data);
+                } else {
+                  console.log({ data });
+                  const response = {
+                    self: data.owned,
+                    friends: data.friends.length,
+                    kallaxId: data.game.id,
+                  };
+                  resolve(response);
+                }
               })
               .catch((res) => {
-                reject(res);
+                console.log({ res });
+                reject({ error: true, code: 0, message: res.toString() });
               });
           }
         }
@@ -239,6 +275,47 @@ const fn = {
       }
     });
     return boardgames;
+  },
+  filterBGA: function (links) {
+    //filter the list of links on Board Game Geek to leave only boardgames
+    var boardgames = [];
+    links.forEach((e) => {
+      var href = "";
+      var text = "";
+      var location = window.location.href;
+      if (location.search(/\/game\/(.*?)\//) != -1) {
+        href = location.match(/\/game\/(.*?)\//)[1];
+        text = e.textContent;
+      } else {
+        console.log(e);
+        console.log(e.closest("a"));
+        href = e.closest("a").getAttribute("href");
+        text = e.firstChild.textContent;
+      }
+      if (href != null) {
+        boardgames.push([e, href, text]);
+      }
+    });
+    return boardgames;
+  },
+  waitForElem: function (selector) {
+    return new Promise((resolve) => {
+      if (document.querySelector(selector)) {
+        return resolve(document.querySelector(selector));
+      }
+
+      const observer = new MutationObserver((mutations) => {
+        if (document.querySelector(selector)) {
+          resolve(document.querySelector(selector));
+          observer.disconnect();
+        }
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+    });
   },
   addLogo: function (e) {
     //Add the Kallax menu after each boardgame found
@@ -301,6 +378,32 @@ const fn = {
         .addEventListener("click", fn.login);
     }, 10);
   },
+  showErrorWindow: function (code, message) {
+    var ErrorWindowEl = document.createElement("div");
+    ErrorWindowEl.innerHTML = `
+    <div id="kallax-menu">
+      <div id="kallax-shadow"></div>
+      <div id="kallax-login-container">
+        <div id="kallax-x" onclick="this.parentElement.parentElement.parentElement.remove()">X</div>
+        <div id="kallax-header">
+          <div id="kallax-title">Error</div>
+        </div>
+        <div id="kallax-footer">
+          <div id="kallax-link"><a href="https://kallax.io">kallax.io</a></div>
+        </div>
+        <div id="kallax-body">
+          <div id="kallax-profile-id">
+            <div id="kallax-login-description">There was an error retrieving this game.</div>
+            <div id="kallax-login-error" onclick="document.querySelector('#kallax-login-error-expand').classList.toggle('kallax-hidden')">
+              ${message}
+              <div id='kallax-login-error-expand' class='kallax-hidden'>Code:${code}</div>
+            </div>
+          </div>          
+        </div>        
+      </div>      
+    </div>`;
+    document.querySelector("body").appendChild(ErrorWindowEl);
+  },
   addKallaxMenu: function (title, self, friends, kallaxId) {
     var menuEl = document.createElement("div");
     menuEl.innerHTML = `
@@ -339,7 +442,13 @@ const fn = {
       })
       .catch(function (error) {
         console.log({ error });
-        fn.showLoginWindow(error);
+        switch (error.code) {
+          case 401:
+            fn.showLoginWindow(error.message);
+            break;
+          default:
+            fn.showErrorWindow(error.code, error.message);
+        }
       });
   },
   getElementId: function (el) {

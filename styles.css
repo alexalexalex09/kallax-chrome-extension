@@ -2,7 +2,6 @@ kallaxLogo {
   position: relative;
   width: 1em;
   height: 1em;
-  transform: translateX(-1.1rem);
   display: inline-block;
   background-repeat: no-repeat;
   background-position: center;
