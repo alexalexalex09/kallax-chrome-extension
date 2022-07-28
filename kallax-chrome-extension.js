@@ -12,7 +12,7 @@ response expected:
   jwt: base64 encoded jwt
 
 called by:
-  fn.login()
+  login()
 
 *********************************
 /getInfoOnGame [to be renamed]
@@ -34,7 +34,7 @@ Response expected:
   kallaxId: Kallax internal id of the game
 
 called by:
-  fn.getKallaxInfo()
+  getKallaxInfo()
 
 *********************************
 /addGameToKallax [to be renamed]
@@ -55,7 +55,7 @@ Response expected:
   }
 
   called by:
-    fn.addToKallax()
+    addToKallax()
 
 
 */
@@ -67,21 +67,21 @@ const BGGWhiteList = [
   ".geekitem_infotable a",
   ".collection_table a",
   ".geeklist_item_title a",
-  /*".hotness-item",*/ //This doesn't look good
+  /*".hotness-item",*/ //This doesn't look right when adding icons
 ];
 
-const BGAWhiteList = [".card-title", "#game-info h1"];
+const BGAWhiteList = [".game-item.subtle-link-area>a", "#game-info h1"];
 
+//Uncomment to clear Chrome storage
 //chrome.storage.sync.clear();
 
 //Wait until the window is loaded to modify the content
 window.addEventListener("load", function () {
   const tabUrl = location.href;
-  /***********************/
-  /*      For BGG        */
-  /***********************/
+
   //Get list of all anchor tags
-  console.log("Getting links");
+
+  //For BGG:
   var link = [];
   var boardgames = [];
   if (tabUrl.substring(0, 25) == "https://boardgamegeek.com") {
@@ -89,28 +89,35 @@ window.addEventListener("load", function () {
       link.push(document.querySelectorAll(e));
     });
     link.forEach((e) => {
-      boardgames.push(fn.filterBGG(e));
+      boardgames.push(filterBGG(e));
     });
 
     console.log("Placing icons on " + boardgames.length + " elements");
     boardgames.forEach((e) => {
       e.forEach((el) => {
-        fn.addLogo(el);
+        addLogo(el);
       });
     });
   }
 
+  //For BGA:
   if (tabUrl.substring(0, 30) == "https://www.boardgameatlas.com") {
-    fn.waitForElem(".game-item.subtle-link-area a").then(function () {
+    var waitElem = "";
+    if (document.querySelector("#game-info h1") != null) {
+      waitElem = "#game-info h1";
+    } else {
+      waitElem = ".game-item.subtle-link-area a";
+    }
+    waitForElem(waitElem).then(function () {
       BGAWhiteList.forEach((e) => {
         link.push(document.querySelectorAll(e));
       });
       link.forEach((e) => {
-        boardgames.push(fn.filterBGA(e));
+        boardgames.push(filterBGA(e));
       });
       boardgames.forEach((e) => {
         e.forEach((el) => {
-          fn.addLogo(el);
+          addLogo(el);
         });
       });
     });
@@ -121,18 +128,17 @@ window.addEventListener("load", function () {
 /*      Functions      */
 /***********************/
 
-const fn = {
-  login: function (e) {
-    const profileId = document.querySelector("#kallax-profile-id-input").value;
-    chrome.storage.sync.set({ jwt: profileId });
-    document.querySelector("#kallax-body").innerHTML = `
+function login(e) {
+  const profileId = document.querySelector("#kallax-profile-id-input").value;
+  chrome.storage.sync.set({ jwt: profileId });
+  document.querySelector("#kallax-body").innerHTML = `
     <div class="kallax-alert">
       Password saved...
     </div>`;
-    setTimeout(function () {
-      document.querySelector("#kallax-menu").parentElement.remove();
-    }, 2000);
-    /*chrome.storage.sync.get(["jwt"], function (result) {
+  setTimeout(function () {
+    document.querySelector("#kallax-menu").parentElement.remove();
+  }, 2000);
+  /*chrome.storage.sync.get(["jwt"], function (result) {
       if (Object.keys(result).length == 0) {
         //If we're not already logged in, create a fetch request with username and password
         const options = {
@@ -150,201 +156,198 @@ const fn = {
           });
       }
     });*/
-  },
-  streamToString: function (stream) {
-    const chunks = [];
-    return new Promise((resolve, reject) => {
-      stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-      stream.on("error", (err) => reject(err));
-      stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-    });
-  },
-  getKallaxInfo: function (title, id) {
-    console.log("Getting Kallax info...");
-    var promise = new Promise(function (resolve, reject) {
-      chrome.storage.sync.get(["jwt"], function (result) {
-        if (Object.keys(result).length == 0) {
-          reject("Not logged in");
-        } else {
-          if (id.type == "bgg") {
-            console.log("At BGG...");
-            const jwt = result["jwt"];
-            console.log({ jwt });
-            const options = {
-              method: "GET",
-              headers: {
-                "Content-Type": "application/json",
-                "x-api-key": jwt,
-              },
-            };
-            fetch(
-              "https://kallax.io/api/owns/" +
-                id.id +
-                "?source=" +
-                id.type.toLowerCase(),
-              options
-            )
-              .then(function (response) {
-                if (response.status < 200 || response.status > 299) {
-                  var ret = { error: true, code: response.status };
-                  switch (response.status) {
-                    case 500:
-                      ret.message =
-                        "Sorry, this game could not be found. We're working on adding it to our database!";
-                      return ret;
-                      break;
-                    case 401:
-                      ret.message =
-                        "The previous login attempt failed. Please try to log in again.";
-                      return ret;
-                      break;
-                    default:
-                      ret.message = "Error " + response.status;
-                      return ret;
-                  }
-                } else {
-                  return response.json();
-                }
-              })
-              .then(function (data) {
-                if (data.error) {
-                  reject(data);
-                } else {
-                  console.log({ data });
-                  const response = {
-                    self: data.owned,
-                    friends: data.friends.length,
-                    kallaxId: data.game.id,
-                  };
-                  resolve(response);
-                }
-              })
-              .catch((res) => {
-                console.log({ res });
-                reject({ error: true, code: 0, message: res.toString() });
-              });
-          }
-        }
-      });
-    });
-    return promise;
-  },
-  addToKallax: function (kallaxId) {
-    //Get the id from local storage based on title, otherwise search kallax
-    console.log("Adding " + title);
+}
+function streamToString(stream) {
+  const chunks = [];
+  return new Promise((resolve, reject) => {
+    stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+    stream.on("error", (err) => reject(err));
+    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
+  });
+}
+function getKallaxInfo(title, id) {
+  console.log("Getting Kallax info...");
+  var promise = new Promise(function (resolve, reject) {
     chrome.storage.sync.get(["jwt"], function (result) {
-      if (typeof result[jwt] == "undefined") {
+      if (Object.keys(result).length == 0) {
         reject("Not logged in");
-      }
-      const jwt = result["jwt"];
-      var promise = new Promise(function (resolve, reject) {
-        const body = {
-          kallaxId: kallaxId,
-        };
+      } else {
+        const jwt = result["jwt"];
         const options = {
-          method: "POST",
-          body: JSON.stringify(body),
+          method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": "Bearer " + jwt,
+            "x-api-key": jwt,
           },
         };
-        fetch("https://kallax.io/addGameToKallax", options) //TODO: Use an actual endpoint
-          .then((response) => response.json())
-          .then((data) => {
-            //Store result in Chrome sync
-            resolve(data.success);
+        fetch(
+          "https://kallax.io/api/owns/" +
+            id.id +
+            "?source=" +
+            id.type.toLowerCase(),
+          options
+        )
+          .then(function (response) {
+            if (response.status < 200 || response.status > 299) {
+              var ret = { error: true, code: response.status };
+              switch (response.status) {
+                case 500:
+                  ret.message =
+                    "Sorry, this game could not be found. We're working on adding it to our database!";
+                  return ret;
+                  break;
+                case 401:
+                  ret.message =
+                    "The previous login attempt failed. Please try to log in again.";
+                  return ret;
+                  break;
+                default:
+                  ret.message = "Error " + response.status;
+                  return ret;
+              }
+            } else {
+              return response.json();
+            }
+          })
+          .then(function (data) {
+            if (data.error) {
+              reject(data);
+            } else {
+              const response = {
+                self: data.owned,
+                friends: data.friends.length,
+                kallaxId: data.game.id,
+              };
+              resolve(response);
+            }
+          })
+          .catch((res) => {
+            console.log({ res });
+            reject({ error: true, code: 0, message: res.toString() });
           });
-      });
-    });
-    return promise;
-  },
-  filterBGG: function (links) {
-    //filter the list of links on Board Game Geek to leave only boardgames
-    var boardgames = [];
-    links.forEach((e) => {
-      var href = e.getAttribute("href");
-      if (
-        href != null &&
-        href.search(/\/boardgame.*\/[0-9]+\/[^\/]*$/) == 0 &&
-        e.text != "" &&
-        e.text != "Shop" &&
-        e.offsetParent !== null
-      ) {
-        boardgames.push([e, href, e.text]);
       }
     });
-    return boardgames;
-  },
-  filterBGA: function (links) {
-    //filter the list of links on Board Game Geek to leave only boardgames
-    var boardgames = [];
-    links.forEach((e) => {
-      var href = "";
-      var text = "";
-      var location = window.location.href;
-      if (location.search(/\/game\/(.*?)\//) != -1) {
-        href = location.match(/\/game\/(.*?)\//)[1];
-        text = e.textContent;
-      } else {
-        console.log(e);
-        console.log(e.closest("a"));
-        href = e.closest("a").getAttribute("href");
-        text = e.firstChild.textContent;
-      }
-      if (href != null) {
-        boardgames.push([e, href, text]);
-      }
+  });
+  return promise;
+}
+function addToKallax(kallaxId) {
+  //Get the id from local storage based on title, otherwise search kallax
+  console.log("Adding " + title);
+  chrome.storage.sync.get(["jwt"], function (result) {
+    if (typeof result[jwt] == "undefined") {
+      reject("Not logged in");
+    }
+    const jwt = result["jwt"];
+    var promise = new Promise(function (resolve, reject) {
+      const body = {
+        kallaxId: kallaxId,
+      };
+      const options = {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + jwt,
+        },
+      };
+      fetch("https://kallax.io/addGameToKallax", options) //TODO: Use an actual endpoint
+        .then((response) => response.json())
+        .then((data) => {
+          //Store result in Chrome sync
+          resolve(data.success);
+        });
     });
-    return boardgames;
-  },
-  waitForElem: function (selector) {
-    return new Promise((resolve) => {
+  });
+  return promise;
+}
+function filterBGG(links) {
+  //filter the list of links on Board Game Geek to leave only boardgames
+  var boardgames = [];
+  links.forEach((e) => {
+    var href = e.getAttribute("href");
+    if (
+      href != null &&
+      href.search(/\/boardgame.*\/[0-9]+\/[^\/]*$/) == 0 &&
+      e.text != "" &&
+      e.text != "Shop" &&
+      e.offsetParent !== null
+    ) {
+      boardgames.push([e, href, e.text]);
+    }
+  });
+  return boardgames;
+}
+function filterBGA(links) {
+  //filter the list of links on Board Game Geek to leave only boardgames
+  var boardgames = [];
+  links.forEach((e) => {
+    var href = "";
+    var text = "";
+    var location = window.location.href;
+    if (location.search(/\/game\/(.*?)\//) != -1) {
+      href = location;
+      text = e.textContent;
+      e.innerHTML = "<div style='display:none'></div>" + e.innerHTML;
+      e = e.children[0];
+    } else {
+      href = e.getAttribute("href");
+      text = e.getAttribute("title");
+      //If there's a "deal" above the element in a list, place the kallax logo before the deal, not
+      e = e.parentElement.querySelector(".game-extra-info");
+    }
+    if (href != null) {
+      boardgames.push([e, href, text]);
+    }
+  });
+  return boardgames;
+}
+function waitForElem(selector) {
+  return new Promise((resolve) => {
+    if (document.querySelector(selector)) {
+      return resolve(document.querySelector(selector));
+    }
+
+    const observer = new MutationObserver((mutations) => {
       if (document.querySelector(selector)) {
-        return resolve(document.querySelector(selector));
+        resolve(document.querySelector(selector));
+        observer.disconnect();
       }
-
-      const observer = new MutationObserver((mutations) => {
-        if (document.querySelector(selector)) {
-          resolve(document.querySelector(selector));
-          observer.disconnect();
-        }
-      });
-
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-      });
     });
-  },
-  addLogo: function (e) {
-    //Add the Kallax menu after each boardgame found
-    var el = document.createElement("kallaxLogo");
-    el.classList.add("kallaxLogo");
-    //TODO: Create a hidden menu element
-    //TODO: Add menu element as child of passed element
-    el.addEventListener("click", fn.showKallaxMenu);
-    e[0].parentNode.insertBefore(el, e[0]);
-  },
-  saveLocal: function (title, kallaxId, owned, friends) {
-    //Cache data locally in Chrome sync storage to avoid scraping when possible
-    var toSave = {};
-    toSave[title] = {
-      title: title,
-      kallaxId: kallaxId,
-      owned: owned,
-      friends: friends,
-      date: Date.now(),
-    };
-    chrome.storage.sync.set(toSave, (res) => {});
-  },
-  showLoginWindow: function (error) {
-    var loginMenu = document.createElement("div");
-    loginMenu.innerHTML = `
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  });
+}
+function addLogo(e) {
+  //Add the Kallax menu after each boardgame found
+  var el = document.createElement("kallaxLogo");
+  el.classList.add("kallaxLogo");
+  el.setAttribute("x-href", e[1]);
+  el.setAttribute("x-text", e[2].trim());
+  el.addEventListener("click", showKallaxMenu);
+  e[0].parentNode.insertBefore(el, e[0]);
+}
+function saveLocal(title, kallaxId, owned, friends) {
+  //Cache data locally in Chrome sync storage to avoid scraping when possible
+  var toSave = {};
+  toSave[title] = {
+    title: title,
+    kallaxId: kallaxId,
+    owned: owned,
+    friends: friends,
+    date: Date.now(),
+  };
+  chrome.storage.sync.set(toSave, (res) => {});
+}
+function showLoginWindow(error) {
+  var loginMenu = document.createElement("div");
+  loginMenu.innerHTML = `
     <div id="kallax-menu">
       <div id="kallax-shadow"></div>
       <div id="kallax-login-container">
-        <div id="kallax-x" onclick="this.parentElement.parentElement.parentElement.remove()">X</div>
+        <div id="kallax-x">X</div>
         <div id="kallax-header">
           <div id="kallax-title">Login to Kallax</div>
         </div>
@@ -360,7 +363,7 @@ const fn = {
           <div id="kallax-login-button">
             <input type="submit" value="Login"/>
           </div>
-          <div id="kallax-login-error" onclick="document.querySelector('#kallax-login-error-expand').classList.toggle('kallax-hidden')">${
+          <div id="kallax-login-error">${
             error
               ? "The previous login attempt failed<div id='kallax-login-error-expand' class='kallax-hidden'>" +
                 error +
@@ -370,21 +373,32 @@ const fn = {
         </div>        
       </div>      
     </div>`;
-    document.querySelector("body").appendChild(loginMenu);
-    setTimeout(function () {
-      console.log("Adding login function");
-      document
-        .querySelector("#kallax-login-button")
-        .addEventListener("click", fn.login);
-    }, 10);
-  },
-  showErrorWindow: function (code, message) {
-    var ErrorWindowEl = document.createElement("div");
-    ErrorWindowEl.innerHTML = `
+  document.querySelector("body").appendChild(loginMenu);
+  setTimeout(function () {
+    document
+      .querySelector("#kallax-login-button")
+      .addEventListener("click", login);
+    document.querySelector("#kallax-x").addEventListener("click", closeWindow);
+    document
+      .querySelector("#kallax-login-error")
+      .addEventListener("click", toggleHidden);
+  }, 10);
+}
+function closeWindow(e) {
+  e.target.parentElement.parentElement.parentElement.remove();
+}
+function toggleHidden() {
+  document
+    .querySelector("#kallax-login-error-expand")
+    .classList.toggle("kallax-hidden");
+}
+function showErrorWindow(code, message) {
+  var ErrorWindowEl = document.createElement("div");
+  ErrorWindowEl.innerHTML = `
     <div id="kallax-menu">
       <div id="kallax-shadow"></div>
       <div id="kallax-login-container">
-        <div id="kallax-x" onclick="this.parentElement.parentElement.parentElement.remove()">X</div>
+        <div id="kallax-x">X</div>
         <div id="kallax-header">
           <div id="kallax-title">Error</div>
         </div>
@@ -394,7 +408,7 @@ const fn = {
         <div id="kallax-body">
           <div id="kallax-profile-id">
             <div id="kallax-login-description">There was an error retrieving this game.</div>
-            <div id="kallax-login-error" onclick="document.querySelector('#kallax-login-error-expand').classList.toggle('kallax-hidden')">
+            <div id="kallax-login-error">
               ${message}
               <div id='kallax-login-error-expand' class='kallax-hidden'>Code:${code}</div>
             </div>
@@ -402,15 +416,21 @@ const fn = {
         </div>        
       </div>      
     </div>`;
-    document.querySelector("body").appendChild(ErrorWindowEl);
-  },
-  addKallaxMenu: function (title, self, friends, kallaxId) {
-    var menuEl = document.createElement("div");
-    menuEl.innerHTML = `
+  document.querySelector("body").appendChild(ErrorWindowEl);
+  setTimeout(function () {
+    document.querySelector("#kallax-x").addEventListener("click", closeWindow);
+    document
+      .querySelector("#kallax-login-error")
+      .addEventListener("click", toggleHidden);
+  }, 10);
+}
+function addKallaxMenu(title, self, friends, kallaxId) {
+  var menuEl = document.createElement("div");
+  menuEl.innerHTML = `
     <div id="kallax-menu">
       <div id="kallax-shadow"></div>
       <div id="kallax-menu-container">
-        <div id="kallax-x" onclick="this.parentElement.parentElement.parentElement.remove()">X</div>
+        <div id="kallax-x">X</div>
         <div id="kallax-header">
           <div id="kallax-title">${title}</div>
         </div>
@@ -430,53 +450,52 @@ const fn = {
         </div>        
       </div>      
     </div>`;
-    document.querySelector("body").appendChild(menuEl);
-  },
-  showKallaxMenu: function (e) {
-    const el = e.target;
-    const title = el.parentElement.querySelector("a").innerText.trim();
-    const id = fn.getElementId(el);
-    fn.getKallaxInfo(title, id)
-      .then(function (res) {
-        fn.addKallaxMenu(title, res.self, res.friends, res.kallaxId);
-      })
-      .catch(function (error) {
-        console.log({ error });
-        switch (error.code) {
-          case 401:
-            fn.showLoginWindow(error.message);
-            break;
-          default:
-            fn.showErrorWindow(error.code, error.message);
-        }
-      });
-  },
-  getElementId: function (el) {
-    let id = {};
-    switch (0) {
-      case window.location.href.search(/.*boardgamegeek.*/):
-        //We're at Board Game Geek
-        id = {
-          type: "bgg",
-          id: el.parentElement
-            .querySelector("a")
-            .getAttribute("href")
-            .match(/\/.*?\/(\d+)/)[1],
-        };
-        break;
-      case window.location.href.search(/.*boardgameatlas.*/):
-        //TODO: We're at Board Game Atlas
-        id = {
-          type: "bga",
-          id: el.parentElement
-            .querySelector("a")
-            .getAttribute("href")
-            .match(/\/.*?\/(\d+)/)[1],
-        };
-        break;
-      default:
-        id = { error: "Ineligible site" };
-    }
-    return id;
-  },
-};
+  document.querySelector("body").appendChild(menuEl);
+  setTimeout(function () {
+    document.querySelector("#kallax-x").addEventListener("click", closeWindow);
+  }, 10);
+}
+function showKallaxMenu(e) {
+  const el = e.target;
+  const title = el.getAttribute("x-text");
+  const id = getElementId(el);
+  getKallaxInfo(title, id)
+    .then(function (res) {
+      addKallaxMenu(title, res.self, res.friends, res.kallaxId);
+    })
+    .catch(function (error) {
+      console.log({ error });
+      switch (error.code) {
+        case 401:
+          showLoginWindow(error.message);
+          break;
+        default:
+          showErrorWindow(error.code, error.message);
+      }
+    });
+}
+function getElementId(el) {
+  let id = {};
+  switch (0) {
+    case window.location.href.search(/.*boardgamegeek.*/):
+      //We're at Board Game Geek
+      id = {
+        type: "bgg",
+        id: el.parentElement
+          .querySelector("a")
+          .getAttribute("href")
+          .match(/\/.*?\/(\d+)/)[1],
+      };
+      break;
+    case window.location.href.search(/.*boardgameatlas.*/):
+      //TODO: We're at Board Game Atlas
+      id = {
+        type: "bga",
+        id: el.getAttribute("x-href").match(/\/game\/(.*?)\//)[1],
+      };
+      break;
+    default:
+      id = { error: "Ineligible site" };
+  }
+  return id;
+}
