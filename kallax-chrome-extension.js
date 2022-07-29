@@ -433,7 +433,6 @@ function addKallaxMenu(title, self, friends, id) {
   var menuEl = document.createElement("div");
   const buttonClass = self ? 'class="kallax-owned" disabled' : "";
   const meText = self ? "" : "do not";
-  const friendsTitle = friends.length ? friends.length : "None";
   menuEl.innerHTML = `
     <div id="kallax-menu">
       <div id="kallax-shadow"></div>
@@ -450,7 +449,7 @@ function addKallaxMenu(title, self, friends, id) {
             <button ${buttonClass}>Add to My Collection</button>
           </div>
           <div id="kallax-me">You ${meText} own this game</div>
-          <div id="kallax-friends-title">${friendsTitle} of your friends own this game</div>
+          <div id="kallax-friends-title">This game is owned by ${friends.length} of your friends</div>
           <div id="kallax-friends"></div>
         </div>        
       </div>      
