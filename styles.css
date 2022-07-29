@@ -138,6 +138,31 @@ kallaxLogo {
   color: initial;
 }
 
+#kallax-add {
+  margin-bottom: .5em;
+}
+
+#kallax-me, #kallax-friends-title {
+  font-size: 1.2em;
+  margin-top: 0.2em;
+}
+
+.kallax-friend {
+  background-color: #d8d8d8;
+  padding: 0px 25px;
+  width: auto;
+  border-radius: 20px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+button.kallax-owned[disabled] {
+  color: #888;
+  cursor: not-allowed;
+}
+
 .kallax-hidden {
   display: none;
 }

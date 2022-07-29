@@ -1,18 +1,17 @@
 /* Relies on 3 endpoints:
 
 *********************************
-/login:
+/security_credentials:
 *********************************
-Logs the user in to kallax.io
+Not an endpoint, but an actual webpage at kallax.io
 Parameters:
-  username: String
-  password: String
+  ext_id: String (this extension's id)
 
 response expected:
-  jwt: base64 encoded jwt
+  key: String (user's private api key)
 
 called by:
-  login()
+  navigating to the endpoint in the browser
 
 *********************************
 /getInfoOnGame [to be renamed]
@@ -124,38 +123,16 @@ window.addEventListener("load", function () {
   }
   //Add a placeholder icon to all board game links
 });
+
 /***********************/
 /*      Functions      */
 /***********************/
 
 function login(e) {
-  const profileId = document.querySelector("#kallax-profile-id-input").value;
-  chrome.storage.sync.set({ jwt: profileId });
-  document.querySelector("#kallax-body").innerHTML = `
-    <div class="kallax-alert">
-      Password saved...
-    </div>`;
-  setTimeout(function () {
-    document.querySelector("#kallax-menu").parentElement.remove();
-  }, 2000);
-  /*chrome.storage.sync.get(["jwt"], function (result) {
-      if (Object.keys(result).length == 0) {
-        //If we're not already logged in, create a fetch request with username and password
-        const options = {
-          method: "GET",
-          body: JSON.stringify(body),
-          headers: {
-            "Content-Type": "application/json",
-          },
-        };
-        fetch("https://kallax.io/login", options) //TODO: Use an actual endpoint
-          .then((response) => response.text())
-          .then((data) => {
-            //When the response is received, store the jwt in chrome sync storage for future use
-            chrome.storage.sync.set({ jwt: data.jwt });
-          });
-      }
-    });*/
+  window.open(
+    "https://kallax.io/security_credentials/" + chrome.runtime.id,
+    "_blank"
+  );
 }
 function streamToString(stream) {
   const chunks = [];
@@ -168,16 +145,16 @@ function streamToString(stream) {
 function getKallaxInfo(title, id) {
   console.log("Getting Kallax info...");
   var promise = new Promise(function (resolve, reject) {
-    chrome.storage.sync.get(["jwt"], function (result) {
+    chrome.storage.sync.get(["key"], function (result) {
       if (Object.keys(result).length == 0) {
-        reject("Not logged in");
+        reject({ code: 401, message: "Not logged in" });
       } else {
-        const jwt = result["jwt"];
+        const key = result["key"];
         const options = {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
-            "x-api-key": jwt,
+            "x-api-key": key,
           },
         };
         fetch(
@@ -215,7 +192,7 @@ function getKallaxInfo(title, id) {
             } else {
               const response = {
                 self: data.owned,
-                friends: data.friends.length,
+                friends: data.friends,
                 kallaxId: data.game.id,
               };
               resolve(response);
@@ -230,32 +207,36 @@ function getKallaxInfo(title, id) {
   });
   return promise;
 }
-function addToKallax(kallaxId) {
+function addToKallax(title, id) {
   //Get the id from local storage based on title, otherwise search kallax
   console.log("Adding " + title);
-  chrome.storage.sync.get(["jwt"], function (result) {
-    if (typeof result[jwt] == "undefined") {
-      reject("Not logged in");
-    }
-    const jwt = result["jwt"];
-    var promise = new Promise(function (resolve, reject) {
-      const body = {
-        kallaxId: kallaxId,
-      };
-      const options = {
-        method: "POST",
-        body: JSON.stringify(body),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + jwt,
-        },
-      };
-      fetch("https://kallax.io/addGameToKallax", options) //TODO: Use an actual endpoint
-        .then((response) => response.json())
-        .then((data) => {
-          //Store result in Chrome sync
-          resolve(data.success);
+  var promise = new Promise(function (resolve, reject) {
+    chrome.storage.sync.get(["key"], function (result) {
+      if (Object.keys(result).length == 0) {
+        reject({ code: 401, message: "Not logged in" });
+      } else {
+        const key = result["key"];
+        var promise = new Promise(function (resolve, reject) {
+          const options = {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": key,
+            },
+          };
+          fetch(
+            "https://kallax.io/api/collection/add/" +
+              id.id +
+              "?source=" +
+              id.type.toLowerCase(),
+            options
+          )
+            .then((response) => response.json())
+            .then((data) => {
+              resolve(data);
+            });
         });
+      }
     });
   });
   return promise;
@@ -355,10 +336,8 @@ function showLoginWindow(error) {
           <div id="kallax-link"><a href="https://kallax.io">kallax.io</a></div>
         </div>
         <div id="kallax-body">
-          <div id="kallax-login-description"><em>(Find your profile ID on your Kallax profile page)</em></div>
           <div id="kallax-profile-id">
-            <label for="kallax-profile-id-input">Enter your Kallax Extension Password</label>
-            <input id="kallax-profile-id-input" type="text"/>
+            <label for="kallax-login-button">Click the button to log in at Kallax.io</label>
           </div>
           <div id="kallax-login-button">
             <input type="submit" value="Login"/>
@@ -424,8 +403,11 @@ function showErrorWindow(code, message) {
       .addEventListener("click", toggleHidden);
   }, 10);
 }
-function addKallaxMenu(title, self, friends, kallaxId) {
+function addKallaxMenu(title, self, friends, id) {
   var menuEl = document.createElement("div");
+  const buttonClass = self ? 'class="kallax-owned" disabled' : "";
+  const meText = self ? "" : "do not";
+  const friendsTitle = friends.length ? friends.length : "None";
   menuEl.innerHTML = `
     <div id="kallax-menu">
       <div id="kallax-shadow"></div>
@@ -438,22 +420,34 @@ function addKallaxMenu(title, self, friends, kallaxId) {
           <div id="kallax-link"><a href="https://kallax.io">kallax.io</a></div>
         </div>
         <div id="kallax-body">
-          <div id="kallax-me">You ${
-            self ? "own " : "do not own "
-          }this game</div>
-          <div id="kallax-friends">${
-            friends ? friends : "None"
-          } of your friends own this game</div>
           <div id="kallax-add">
-              <button onclick=${kallaxId}>Add to My Collection</button>
+            <button ${buttonClass}>Add to My Collection</button>
           </div>
+          <div id="kallax-me">You ${meText} own this game</div>
+          <div id="kallax-friends-title">${friendsTitle} of your friends own this game</div>
+          <div id="kallax-friends"></div>
         </div>        
       </div>      
     </div>`;
   document.querySelector("body").appendChild(menuEl);
+  friends.forEach(function (friend) {
+    var friendEl = document.createElement("div");
+    friendEl.setAttribute("id", friend.identifier);
+    friendEl.classList.add("kallax-friend");
+    friendEl.innerHTML = "<span>" + friend.username + "</span>";
+    document.querySelector("#kallax-friends").appendChild(friendEl);
+    setTimeout(function () {
+      friendEl.addEventListener("click", () =>
+        window.open(friend.profileUrl, "_blank")
+      );
+    }, 1);
+  });
   setTimeout(function () {
     document.querySelector("#kallax-x").addEventListener("click", closeWindow);
-  }, 10);
+    document
+      .querySelector("#kallax-add button")
+      .addEventListener("click", addToKallax(title, id));
+  }, 1);
 }
 function showKallaxMenu(e) {
   const el = e.target;
@@ -461,7 +455,7 @@ function showKallaxMenu(e) {
   const id = getElementId(el);
   getKallaxInfo(title, id)
     .then(function (res) {
-      addKallaxMenu(title, res.self, res.friends, res.kallaxId);
+      addKallaxMenu(title, res.self, res.friends, id);
     })
     .catch(function (error) {
       console.log({ error });

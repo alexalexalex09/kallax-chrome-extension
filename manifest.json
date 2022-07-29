@@ -1,7 +1,7 @@
 {
   "name": "Kallax",
   
-  "version": "0.0.3",
+  "version": "0.0.4",
   
   "description": "Helper extension for Kallax.io",
   
@@ -23,7 +23,12 @@
     "matches": ["https://www.boardgamegeek.com/*", "https://boardgamegeek.com/*", "https://boardgameatlas.com/*", "https://www.boardgameatlas.com/*"]
   }
   ],
-
+  "background": {
+    "service_worker": "background.js"
+  },
+  "externally_connectable": {
+    "matches": ["https://kallax.io/*"]
+  },
   "icons": {
     "128": "icon.png"
   }
