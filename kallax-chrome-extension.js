@@ -5,7 +5,7 @@
 *********************************
 Not an endpoint, but an actual webpage at kallax.io
 Parameters:
-  ext_id: String (this extension's id)
+  game: String (this extension's id)
 
 response expected:
   key: String (user's private api key)
@@ -14,48 +14,24 @@ called by:
   navigating to the endpoint in the browser
 
 *********************************
-/getInfoOnGame [to be renamed]
+[GET] /api/owns
 *********************************
 Reads a specific game from Kallax
 
-
-Parameters:
-  title: String,
-  site: String("BGG"|"BGA"),
-  id: String(id based on site format of the site parameter),
-
-Header:
-  Authorization: "Bearer " + jwt
-
-Response expected:
-  self: Boolean (true if owned by current user)
-  friends: Number (number of friends who own this game)
-  kallaxId: Kallax internal id of the game
+https://kallax.io/swagger/index.html
 
 called by:
   getKallaxInfo()
 
 *********************************
-/addGameToKallax [to be renamed]
+/api/collection/add [to be renamed]
 *********************************
 Adds the specified game to the user's Kallax collection
 
+https://kallax.io/swagger/index.html
 
-Parameters:
-  kallaxId: internal Kallax id
-
-Header:
-  Authorization: "Bearer " + jwt
-
-Response expected:
-  succcess: {
-    status: Boolean (true if successful, false if unsuccessful),
-    reason: String (error code if unsuccessful)
-  }
-
-  called by:
-    addToKallax()
-
+called by:
+  addToKallax()
 
 */
 
@@ -128,20 +104,23 @@ window.addEventListener("load", function () {
 /*      Functions      */
 /***********************/
 
-function login(e) {
+/**
+ * Navigate to Kallax login
+ *
+ */
+function login() {
   window.open(
     "https://kallax.io/security_credentials/" + chrome.runtime.id,
     "_blank"
   );
 }
-function streamToString(stream) {
-  const chunks = [];
-  return new Promise((resolve, reject) => {
-    stream.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
-    stream.on("error", (err) => reject(err));
-    stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")));
-  });
-}
+
+/**
+ * fetches info from /api/owns
+ * @param {String} title
+ * @param {String} id
+ * @returns {Promise} promise
+ */
 function getKallaxInfo(title, id) {
   console.log("Getting Kallax info...");
   var promise = new Promise(function (resolve, reject) {
@@ -207,6 +186,13 @@ function getKallaxInfo(title, id) {
   });
   return promise;
 }
+
+/**
+ * Posts an add game request to /api/collection/add
+ * @param {String} title
+ * @param {String} id
+ * @returns {Promise}
+ */
 function addToKallax(title, id) {
   //Get the id from local storage based on title, otherwise search kallax
   console.log("Adding " + title);
@@ -241,6 +227,12 @@ function addToKallax(title, id) {
   });
   return promise;
 }
+
+/**
+ * For BGG
+ * @param {Array} links An array of querySelectorAll results
+ * @returns {Array} An array of arrays in the format [e, href, e.text]
+ */
 function filterBGG(links) {
   //filter the list of links on Board Game Geek to leave only boardgames
   var boardgames = [];
@@ -258,6 +250,12 @@ function filterBGG(links) {
   });
   return boardgames;
 }
+
+/**
+ * For BGA
+ * @param {Array} links An array of querySelectorAll results
+ * @returns {Array} An array of arrays in the format [e, href, e.text]
+ */
 function filterBGA(links) {
   //filter the list of links on Board Game Geek to leave only boardgames
   var boardgames = [];
@@ -282,6 +280,13 @@ function filterBGA(links) {
   });
   return boardgames;
 }
+
+/**
+ * Call this to wait for a selector to appear in the document.
+ * Useful for elements that only appear after asyncronous calls on the main page
+ * @param {String} selector
+ * @returns {Promise}
+ */
 function waitForElem(selector) {
   return new Promise((resolve) => {
     if (document.querySelector(selector)) {
@@ -301,6 +306,11 @@ function waitForElem(selector) {
     });
   });
 }
+
+/**
+ * Adds a logo to the selected element
+ * @param {Event} e The selecting event
+ */
 function addLogo(e) {
   //Add the Kallax menu after each boardgame found
   var el = document.createElement("kallaxLogo");
@@ -310,18 +320,11 @@ function addLogo(e) {
   el.addEventListener("click", showKallaxMenu);
   e[0].parentNode.insertBefore(el, e[0]);
 }
-function saveLocal(title, kallaxId, owned, friends) {
-  //Cache data locally in Chrome sync storage to avoid scraping when possible
-  var toSave = {};
-  toSave[title] = {
-    title: title,
-    kallaxId: kallaxId,
-    owned: owned,
-    friends: friends,
-    date: Date.now(),
-  };
-  chrome.storage.sync.set(toSave, (res) => {});
-}
+
+/**
+ * Generate and show a login winow, with error message if given
+ * @param {String} error Optional: The error message to show
+ */
 function showLoginWindow(error) {
   var loginMenu = document.createElement("div");
   loginMenu.innerHTML = `
@@ -363,14 +366,29 @@ function showLoginWindow(error) {
       .addEventListener("click", toggleHidden);
   }, 10);
 }
+
+/**
+ * A function to close the modal, for sites that prevent executing inline scripts
+ * @param {Event} e
+ */
 function closeWindow(e) {
   e.target.parentElement.parentElement.parentElement.remove();
 }
+
+/**
+ * A function to toggle the kallax-login-error-expand, for sites that prevent executing inline scripts
+ */
 function toggleHidden() {
   document
     .querySelector("#kallax-login-error-expand")
     .classList.toggle("kallax-hidden");
 }
+
+/**
+ * Generate an error window
+ * @param {Number} code The error code, i.e. 401
+ * @param {String} message
+ */
 function showErrorWindow(code, message) {
   var ErrorWindowEl = document.createElement("div");
   ErrorWindowEl.innerHTML = `
@@ -403,6 +421,14 @@ function showErrorWindow(code, message) {
       .addEventListener("click", toggleHidden);
   }, 10);
 }
+
+/**
+ * Generate and display a game window after successfully retrieving information from kallax.io
+ * @param {String} title
+ * @param {String} self
+ * @param {Array} friends A friends array in the format [{identifier, username, profileUrl}]
+ * @param {String} id
+ */
 function addKallaxMenu(title, self, friends, id) {
   var menuEl = document.createElement("div");
   const buttonClass = self ? 'class="kallax-owned" disabled' : "";
@@ -449,6 +475,11 @@ function addKallaxMenu(title, self, friends, id) {
       .addEventListener("click", addToKallax(title, id));
   }, 1);
 }
+
+/**
+ * Show the appropriate modal given a clicked element
+ * @param {Event} e
+ */
 function showKallaxMenu(e) {
   const el = e.target;
   const title = el.getAttribute("x-text");
@@ -468,6 +499,12 @@ function showKallaxMenu(e) {
       }
     });
 }
+
+/**
+ * given a DOM Node, discover which site we're on and return the id for that node
+ * @param {Node} el Find the game id of the matched element for BGA or BGG
+ * @returns {Object} {type: String, id: String}
+ */
 function getElementId(el) {
   let id = {};
   switch (0) {
@@ -482,7 +519,7 @@ function getElementId(el) {
       };
       break;
     case window.location.href.search(/.*boardgameatlas.*/):
-      //TODO: We're at Board Game Atlas
+      // We're at Board Game Atlas
       id = {
         type: "bga",
         id: el.getAttribute("x-href").match(/\/game\/(.*?)\//)[1],
