@@ -459,7 +459,11 @@ function addKallaxMenu(title, self, friends, id) {
     var friendEl = document.createElement("div");
     friendEl.setAttribute("id", friend.identifier);
     friendEl.classList.add("kallax-friend");
-    friendEl.innerHTML = "<span>" + friend.username + "</span>";
+    friendEl.innerHTML = `
+    <span>
+      ${friend.username}&nbsp;
+      <div class="kallax-avatar"><img src="${friend.avatarUrl}"/></div>
+    </span>`;
     document.querySelector("#kallax-friends").appendChild(friendEl);
     setTimeout(function () {
       friendEl.addEventListener("click", () =>
