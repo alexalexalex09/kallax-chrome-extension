@@ -45,7 +45,9 @@ const BGGWhiteList = [
   /*".hotness-item",*/ //This doesn't look right when adding icons
 ];
 
-const BGAWhiteList = [".game-item.subtle-link-area>a", "#game-info h1"];
+const BGAWhiteList = [
+  /*".game-item.subtle-link-area>a", "#game-info h1"*/
+];
 
 //Uncomment to clear Chrome storage
 //chrome.storage.sync.clear();
