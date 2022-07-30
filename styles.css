@@ -71,6 +71,7 @@ kallaxLogo {
   padding: 1em 2em 2em 2em;
   text-align: left;
   grid-area: 4/1/5/3;
+  transition: .1s all;
 }
 
 #kallax-footer {
@@ -101,7 +102,7 @@ kallaxLogo {
   color: white;
 }
 
-#kallax-profile-id, #kallax-profile-id input, #kallax-login, #kallax-login input, #kallax-login-description {
+#kallax-profile-id, #kallax-profile-id input, #kallax-login, #kallax-login input, #kallax-login button, #kallax-login-description {
   text-align: center
 }
 
@@ -121,18 +122,18 @@ kallaxLogo {
   text-align: center;
 }
 
-#kallax-login-button input {
+#kallax-login-button button {
   padding: 3px 20px;
 }
 
-#kallax-login-error {
+#kallax-login-error, #kallax-error {
   color: red;
   text-align: center;
   margin-top: .5em;
   cursor: pointer;
 }
 
-#kallax-login-error-expand {
+#kallax-login-error-expand, #kallax-error-expand {
   cursor: pointer;
   font-style: italic;
   color: initial;
@@ -201,9 +202,18 @@ kallaxLogo {
   text-indent: 10000px;
 }
 
-button.kallax-owned[disabled] {
+#kallax-settings {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  font-size: 1.5em;
+  cursor: pointer;
+}
+
+
+button[disabled] {
   color: #888;
-  cursor: not-allowed;
+  cursor: not-allowed !important;
 }
 
 .kallax-hidden {

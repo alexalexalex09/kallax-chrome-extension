@@ -33,6 +33,16 @@ https://kallax.io/swagger/index.html
 called by:
   addToKallax()
 
+
+
+
+  TODO:
+
+  * Create Events
+  * Show Places in results
+  * BGA Functionality
+  * Convert to Firefox extension
+
 */
 
 //Initalize variables
@@ -54,6 +64,12 @@ const BGAWhiteList = [
 
 //Wait until the window is loaded to modify the content
 window.addEventListener("load", function () {
+  document.querySelector("body").addEventListener("keyup", function (e) {
+    console.log("key: " + e.key);
+    if (e.key === "Escape") {
+      closeWindow();
+    }
+  });
   const tabUrl = location.href;
 
   //Get list of all anchor tags
@@ -189,45 +205,116 @@ function getKallaxInfo(title, id) {
   return promise;
 }
 
-/**
- * Posts an add game request to /api/collection/add
- * @param {String} title
- * @param {String} id
- * @returns {Promise}
- */
-function addToKallax(title, id) {
-  //Get the id from local storage based on title, otherwise search kallax
-  console.log("Adding " + title);
+function kallaxFetch(request, method) {
   var promise = new Promise(function (resolve, reject) {
     chrome.storage.sync.get(["key"], function (result) {
       if (Object.keys(result).length == 0) {
         reject({ code: 401, message: "Not logged in" });
       } else {
         const key = result["key"];
-        var promise = new Promise(function (resolve, reject) {
-          const options = {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-api-key": key,
-            },
-          };
-          fetch(
-            "https://kallax.io/api/collection/add/" +
-              id.id +
-              "?source=" +
-              id.type.toLowerCase(),
-            options
-          )
-            .then((response) => response.json())
-            .then((data) => {
-              resolve(data);
-            });
-        });
+        const options = {
+          method: method,
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": key,
+          },
+        };
+        fetch(request, options)
+          .then((response) => response.json())
+          .then((data) => {
+            resolve(data);
+          });
       }
     });
   });
   return promise;
+}
+
+/**
+ * Posts an add game request to /api/collection/add
+ * @param {String} title
+ * @param {String} id
+ * @returns {Promise}
+ */
+function addToKallax(id) {
+  console.log("Adding game...");
+  const request =
+    `https://kallax.io/api/collection/add/` +
+    id.id +
+    "?source=" +
+    id.type.toLowerCase();
+  const method = "POST";
+  kallaxFetch(request, method)
+    .then(function (res) {
+      console.log("Fetched!");
+      //Populate a gameObject with a BGA or BGG key, depending on which site we're on
+      var gameObject = {
+        title: res.game.title,
+        instance: res.instance.identifier,
+      };
+      gameObject[id.type.toLowerCase()] = id.id;
+
+      //Save that object under its Kallax id
+      var setObject = {};
+      setObject[res.game.title] = gameObject;
+      chrome.storage.sync.set(setObject);
+
+      //Make sure we can look up the exact game title locally in the future in the gameIndex object
+      chrome.storage.sync.get(["gameIndex"], function (result) {
+        if (Object.keys(result).length == 0) {
+          result.gameIndex = {};
+        }
+        result.gameIndex[id.id] = res.game.title;
+        //TODO: Save BGA and BGG ID: result.gameIndex[id.bggId] = res.game.title; result.gameIndex[id.bgaId] = res.game.title;
+        chrome.storage.sync.set({ "gameIndex": result.gameIndex }, function () {
+          document.querySelector("#kallax-menu").parentElement.remove();
+        });
+      });
+    })
+    .catch(function (error) {
+      showKallaxMenuError("There was an error adding this game", error);
+    });
+}
+
+function showKallaxMenuError(message, error) {
+  document.querySelector("#kallax-error").innerHTML =
+    message + document.querySelector("#kallax-error").innerHTML;
+  document.querySelector("#kallax-error-expand").innerHTML = error;
+}
+
+function removeFromKallax(id) {
+  console.log("Removing");
+  chrome.storage.sync.get(["gameIndex"], function (gameIndexResult) {
+    if (Object.keys(gameIndexResult).length == 0) {
+      result.gameIndex = {};
+    }
+    const title = gameIndexResult.gameIndex[id.id];
+    console.log({ title });
+    chrome.storage.sync.get([title], function (instanceResult) {
+      console.log({ instanceResult });
+      if (typeof instanceResult[title] == "undefined") {
+        showKallaxMenuError(
+          "There was an error removing this game",
+          "This game was not added by this extension. If you would like to remove this game from your collection, please go to <a href='https://kallax.io' target='_blank'>kallax.io</a>"
+        );
+      } else {
+        const instance = instanceResult[title].instance;
+        const request = `https://kallax.io/api/collection/delete/` + instance;
+        const method = "DELETE";
+        kallaxFetch(request, method)
+          .then(function (res) {
+            console.log({ res });
+            delete gameIndexResult.gameIndex[id.id];
+            chrome.storage.sync.remove([title], function () {
+              document.querySelector("#kallax-menu").parentElement.remove();
+            });
+          })
+          .catch(function (error) {
+            showKallaxMenuError("There was an error removing this game", error);
+          });
+      }
+    });
+  });
 }
 
 /**
@@ -345,11 +432,11 @@ function showLoginWindow(error) {
             <label for="kallax-login-button">Click the button to log in at Kallax.io</label>
           </div>
           <div id="kallax-login-button">
-            <input type="submit" value="Login"/>
+            <button type="submit">Login</button>
           </div>
-          <div id="kallax-login-error">${
+          <div id="kallax-error">${
             error
-              ? "The previous login attempt failed<div id='kallax-login-error-expand' class='kallax-hidden'>" +
+              ? "The previous login attempt failed<div id='kallax-error-expand' class='kallax-hidden'>" +
                 error +
                 "</div>"
               : ""
@@ -361,28 +448,43 @@ function showLoginWindow(error) {
   setTimeout(function () {
     document
       .querySelector("#kallax-login-button")
-      .addEventListener("click", login);
+      .addEventListener("click", function () {
+        login();
+        document.querySelector(
+          "#kallax-error"
+        ).innerHTML = `<div id="kallax-error-expand" class="kallax-hidden"></div>`;
+        document
+          .querySelector("#kallax-login-button button")
+          .setAttribute("disabled", "");
+        document.querySelector("#kallax-profile-id label").innerHTML =
+          "You may close this window after authorizing the extension on <a href='https://kallax.io'>kallax.io</a>";
+      });
     document.querySelector("#kallax-x").addEventListener("click", closeWindow);
     document
-      .querySelector("#kallax-login-error")
+      .querySelector("#kallax-shadow")
+      .addEventListener("click", closeWindow);
+    document
+      .querySelector("#kallax-error")
       .addEventListener("click", toggleHidden);
   }, 10);
 }
 
 /**
  * A function to close the modal, for sites that prevent executing inline scripts
- * @param {Event} e
+ *
  */
-function closeWindow(e) {
-  e.target.parentElement.parentElement.parentElement.remove();
+function closeWindow() {
+  if (document.querySelector("#kallax-menu") != null) {
+    document.querySelector("#kallax-menu").parentElement.remove();
+  }
 }
 
 /**
- * A function to toggle the kallax-login-error-expand, for sites that prevent executing inline scripts
+ * A function to toggle the kallax-error-expand, for sites that prevent executing inline scripts
  */
 function toggleHidden() {
   document
-    .querySelector("#kallax-login-error-expand")
+    .querySelector("#kallax-error-expand")
     .classList.toggle("kallax-hidden");
 }
 
@@ -392,8 +494,8 @@ function toggleHidden() {
  * @param {String} message
  */
 function showErrorWindow(code, message) {
-  var ErrorWindowEl = document.createElement("div");
-  ErrorWindowEl.innerHTML = `
+  var errorWindowEl = document.createElement("div");
+  errorWindowEl.innerHTML = `
     <div id="kallax-menu">
       <div id="kallax-shadow"></div>
       <div id="kallax-login-container">
@@ -407,19 +509,22 @@ function showErrorWindow(code, message) {
         <div id="kallax-body">
           <div id="kallax-profile-id">
             <div id="kallax-login-description">There was an error retrieving this game.</div>
-            <div id="kallax-login-error">
+            <div id="kallax-error">
               ${message}
-              <div id='kallax-login-error-expand' class='kallax-hidden'>Code:${code}</div>
+              <div id='kallax-error-expand' class='kallax-hidden'>Code:${code}</div>
             </div>
           </div>          
         </div>        
       </div>      
     </div>`;
-  document.querySelector("body").appendChild(ErrorWindowEl);
+  document.querySelector("body").appendChild(errorWindowEl);
   setTimeout(function () {
     document.querySelector("#kallax-x").addEventListener("click", closeWindow);
     document
-      .querySelector("#kallax-login-error")
+      .querySelector("#kallax-shadow")
+      .addEventListener("click", closeWindow);
+    document
+      .querySelector("#kallax-error")
       .addEventListener("click", toggleHidden);
   }, 10);
 }
@@ -433,7 +538,7 @@ function showErrorWindow(code, message) {
  */
 function addKallaxMenu(title, self, friends, id) {
   var menuEl = document.createElement("div");
-  const buttonClass = self ? 'class="kallax-owned" disabled' : "";
+  const buttonText = self ? "Remove from" : "Add to";
   const meText = self ? "" : "do not";
   menuEl.innerHTML = `
     <div id="kallax-menu">
@@ -448,12 +553,16 @@ function addKallaxMenu(title, self, friends, id) {
         </div>
         <div id="kallax-body">
           <div id="kallax-add">
-            <button ${buttonClass}>Add to My Collection</button>
+            <button>${buttonText} My Collection</button>
           </div>
           <div id="kallax-me">You ${meText} own this game</div>
           <div id="kallax-friends-title">This game is owned by ${friends.length} of your friends</div>
           <div id="kallax-friends"></div>
-        </div>        
+          <div id="kallax-error">
+            <div id='kallax-error-expand' class='kallax-hidden'></div>
+          </div>
+        </div>      
+        <div id="kallax-settings">⚙️</div>  
       </div>      
     </div>`;
   document.querySelector("body").appendChild(menuEl);
@@ -468,17 +577,79 @@ function addKallaxMenu(title, self, friends, id) {
     </span>`;
     document.querySelector("#kallax-friends").appendChild(friendEl);
     setTimeout(function () {
-      friendEl.addEventListener("click", () =>
-        window.open(friend.profileUrl, "_blank")
-      );
+      friendEl.addEventListener("click", function () {
+        window.open(friend.profileUrl, "_blank");
+      });
     }, 1);
   });
   setTimeout(function () {
     document.querySelector("#kallax-x").addEventListener("click", closeWindow);
     document
-      .querySelector("#kallax-add button")
-      .addEventListener("click", addToKallax(title, id));
+      .querySelector("#kallax-shadow")
+      .addEventListener("click", closeWindow);
+    document
+      .querySelector("#kallax-error")
+      .addEventListener("click", toggleHidden);
+
+    document
+      .querySelector("#kallax-settings")
+      .addEventListener("click", showSettings);
+
+    if (!self) {
+      document
+        .querySelector("#kallax-add button")
+        .addEventListener("click", function () {
+          addToKallax(id);
+        });
+    } else {
+      document
+        .querySelector("#kallax-add button")
+        .addEventListener("click", function () {
+          removeFromKallax(id);
+        });
+    }
   }, 1);
+}
+
+function showSettings() {
+  closeWindow();
+  var settingsEl = document.createElement("div");
+  settingsEl.innerHTML = `
+    <div id="kallax-menu">
+      <div id="kallax-shadow"></div>
+      <div id="kallax-menu-container">
+        <div id="kallax-x">X</div>
+        <div id="kallax-header">
+          <div id="kallax-title">Extension Settings</div>
+        </div>
+        <div id="kallax-footer">
+          <div id="kallax-link"><a href="https://kallax.io">kallax.io</a></div>
+        </div>
+        <div id="kallax-body">
+          <div id="kallax-add">
+            <button>Click here to log out</button>
+          </div>
+          <div id="kallax-error">
+            <div id='kallax-error-expand' class='kallax-hidden'></div>
+          </div>
+        </div>
+      </div>      
+    </div>`;
+  document.querySelector("body").appendChild(settingsEl);
+  setTimeout(function () {
+    document.querySelector("#kallax-x").addEventListener("click", closeWindow);
+    document
+      .querySelector("#kallax-shadow")
+      .addEventListener("click", closeWindow);
+    document
+      .querySelector("#kallax-error")
+      .addEventListener("click", toggleHidden);
+    document
+      .querySelector("#kallax-add button")
+      .addEventListener("click", function () {
+        chrome.storage.sync.remove(["key"], closeWindow);
+      });
+  }, 10);
 }
 
 /**
