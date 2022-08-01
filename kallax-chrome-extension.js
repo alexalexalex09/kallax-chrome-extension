@@ -65,7 +65,6 @@ const BGAWhiteList = [
 //Wait until the window is loaded to modify the content
 window.addEventListener("load", function () {
   document.querySelector("body").addEventListener("keyup", function (e) {
-    console.log("key: " + e.key);
     if (e.key === "Escape") {
       closeWindow();
     }
@@ -196,7 +195,6 @@ function getKallaxInfo(title, id) {
             }
           })
           .catch((res) => {
-            console.log({ res });
             reject({ error: true, code: 0, message: res.toString() });
           });
       }
@@ -246,7 +244,6 @@ function addToKallax(id) {
   const method = "POST";
   kallaxFetch(request, method)
     .then(function (res) {
-      console.log("Fetched!");
       //Populate a gameObject with a BGA or BGG key, depending on which site we're on
       var gameObject = {
         title: res.game.title,
@@ -283,27 +280,18 @@ function showKallaxMenuError(message, error) {
 }
 
 function removeFromKallax(id) {
-  console.log("Removing");
   chrome.storage.sync.get(["gameIndex"], function (gameIndexResult) {
     if (Object.keys(gameIndexResult).length == 0) {
       result.gameIndex = {};
     }
     const title = gameIndexResult.gameIndex[id.id];
-    console.log({ title });
-    chrome.storage.sync.get([title], function (instanceResult) {
-      console.log({ instanceResult });
-      if (typeof instanceResult[title] == "undefined") {
-        showKallaxMenuError(
-          "There was an error removing this game",
-          "This game was not added by this extension. If you would like to remove this game from your collection, please go to <a href='https://kallax.io' target='_blank'>kallax.io</a>"
-        );
-      } else {
+    try {
+      chrome.storage.sync.get([title], function (instanceResult) {
         const instance = instanceResult[title].instance;
         const request = `https://kallax.io/api/collection/delete/` + instance;
         const method = "DELETE";
         kallaxFetch(request, method)
           .then(function (res) {
-            console.log({ res });
             delete gameIndexResult.gameIndex[id.id];
             chrome.storage.sync.remove([title], function () {
               document.querySelector("#kallax-menu").parentElement.remove();
@@ -312,8 +300,13 @@ function removeFromKallax(id) {
           .catch(function (error) {
             showKallaxMenuError("There was an error removing this game", error);
           });
-      }
-    });
+      });
+    } catch {
+      showKallaxMenuError(
+        "There was an error removing this game",
+        "This game was not added by this extension. If you would like to remove this game from your collection, please go to <a href='https://kallax.io' target='_blank'>kallax.io</a>"
+      );
+    }
   });
 }
 
@@ -417,9 +410,9 @@ function addLogo(e) {
 function showLoginWindow(error) {
   var loginMenu = document.createElement("div");
   loginMenu.innerHTML = `
-    <div id="kallax-menu">
+    <div id="kallax-menu" class="kallax-invisible">
       <div id="kallax-shadow"></div>
-      <div id="kallax-login-container">
+      <div id="kallax-menu-container">
         <div id="kallax-x">X</div>
         <div id="kallax-header">
           <div id="kallax-title">Login to Kallax</div>
@@ -429,9 +422,9 @@ function showLoginWindow(error) {
         </div>
         <div id="kallax-body">
           <div id="kallax-profile-id">
-            <label for="kallax-login-button">Click the button to log in at Kallax.io</label>
+            <label for="kallax-menu-button">Click the button to log in at Kallax.io</label>
           </div>
-          <div id="kallax-login-button">
+          <div id="kallax-menu-button">
             <button type="submit">Login</button>
           </div>
           <div id="kallax-error">${
@@ -447,14 +440,14 @@ function showLoginWindow(error) {
   document.querySelector("body").appendChild(loginMenu);
   setTimeout(function () {
     document
-      .querySelector("#kallax-login-button")
+      .querySelector("#kallax-menu-button")
       .addEventListener("click", function () {
         login();
         document.querySelector(
           "#kallax-error"
         ).innerHTML = `<div id="kallax-error-expand" class="kallax-hidden"></div>`;
         document
-          .querySelector("#kallax-login-button button")
+          .querySelector("#kallax-menu-button button")
           .setAttribute("disabled", "");
         document.querySelector("#kallax-profile-id label").innerHTML =
           "You may close this window after authorizing the extension on <a href='https://kallax.io'>kallax.io</a>";
@@ -466,6 +459,7 @@ function showLoginWindow(error) {
     document
       .querySelector("#kallax-error")
       .addEventListener("click", toggleHidden);
+    document.querySelector("#kallax-menu").classList.remove("kallax-invisible");
   }, 10);
 }
 
@@ -475,7 +469,10 @@ function showLoginWindow(error) {
  */
 function closeWindow() {
   if (document.querySelector("#kallax-menu") != null) {
-    document.querySelector("#kallax-menu").parentElement.remove();
+    document.querySelector("#kallax-menu").classList.add("kallax-invisible");
+    setTimeout(function () {
+      document.querySelector("#kallax-menu").parentElement.remove();
+    }, 310);
   }
 }
 
@@ -496,9 +493,9 @@ function toggleHidden() {
 function showErrorWindow(code, message) {
   var errorWindowEl = document.createElement("div");
   errorWindowEl.innerHTML = `
-    <div id="kallax-menu">
+    <div id="kallax-menu" class="kallax-invisible">
       <div id="kallax-shadow"></div>
-      <div id="kallax-login-container">
+      <div id="kallax-menu-container">
         <div id="kallax-x">X</div>
         <div id="kallax-header">
           <div id="kallax-title">Error</div>
@@ -508,7 +505,7 @@ function showErrorWindow(code, message) {
         </div>
         <div id="kallax-body">
           <div id="kallax-profile-id">
-            <div id="kallax-login-description">There was an error retrieving this game.</div>
+            <div id="kallax-menu-description">There was an error retrieving this game.</div>
             <div id="kallax-error">
               ${message}
               <div id='kallax-error-expand' class='kallax-hidden'>Code:${code}</div>
@@ -526,6 +523,7 @@ function showErrorWindow(code, message) {
     document
       .querySelector("#kallax-error")
       .addEventListener("click", toggleHidden);
+    document.querySelector("#kallax-menu").classList.remove("kallax-invisible");
   }, 10);
 }
 
@@ -541,7 +539,7 @@ function addKallaxMenu(title, self, friends, id) {
   const buttonText = self ? "Remove from" : "Add to";
   const meText = self ? "" : "do not";
   menuEl.innerHTML = `
-    <div id="kallax-menu">
+    <div id="kallax-menu" class="kallax-invisible">
       <div id="kallax-shadow"></div>
       <div id="kallax-menu-container">
         <div id="kallax-x">X</div>
@@ -561,8 +559,8 @@ function addKallaxMenu(title, self, friends, id) {
           <div id="kallax-error">
             <div id='kallax-error-expand' class='kallax-hidden'></div>
           </div>
+          <div id="kallax-settings">⚙️</div>  
         </div>      
-        <div id="kallax-settings">⚙️</div>  
       </div>      
     </div>`;
   document.querySelector("body").appendChild(menuEl);
@@ -608,14 +606,15 @@ function addKallaxMenu(title, self, friends, id) {
           removeFromKallax(id);
         });
     }
-  }, 1);
+    document.querySelector("#kallax-menu").classList.remove("kallax-invisible");
+  }, 10);
 }
 
 function showSettings() {
-  closeWindow();
+  document.querySelector("#kallax-menu").parentElement.remove();
   var settingsEl = document.createElement("div");
   settingsEl.innerHTML = `
-    <div id="kallax-menu">
+    <div id="kallax-menu" class="kallax-invisible">
       <div id="kallax-shadow"></div>
       <div id="kallax-menu-container">
         <div id="kallax-x">X</div>
@@ -649,6 +648,7 @@ function showSettings() {
       .addEventListener("click", function () {
         chrome.storage.sync.remove(["key"], closeWindow);
       });
+    document.querySelector("#kallax-menu").classList.remove("kallax-invisible");
   }, 10);
 }
 
@@ -668,7 +668,7 @@ function showKallaxMenu(e) {
       console.log({ error });
       switch (error.code) {
         case 401:
-          showLoginWindow(error.message);
+          showLoginWindow();
           break;
         default:
           showErrorWindow(error.code, error.message);
