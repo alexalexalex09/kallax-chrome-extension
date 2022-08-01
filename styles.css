@@ -7,17 +7,9 @@ kallaxLogo {
   background-position: center;
   background-size: cover;
   cursor: pointer;
-  background-image: url("chrome-extension://__MSG_@@extension_id__/images/kallax-logo-64.png");
+  background-image: url("chrome-extension://__MSG_@@extension_id__/images/kallax-logo-32.png");
 }
 
-#kallax-x {
-  text-align: right;
-  cursor: pointer;
-  color: white;
-  align-self: end;
-  margin-right: 12px;
-  grid-area: 1/2/2/3;
-}
 
 #kallax-menu {
   position: absolute;
@@ -38,7 +30,7 @@ kallaxLogo {
 }
 
 #kallax-menu-container {
-  background-image: url("chrome-extension://__MSG_@@extension_id__/images/bkgd-water.png");
+  background-image: url("chrome-extension://__MSG_@@extension_id__/images/background.png");
   background-size: cover;
   border-radius: 12px;
   padding: 0px;
@@ -50,7 +42,7 @@ kallaxLogo {
   transform: translate(-50%, -50%);
   display: grid;
   grid-template-rows: 2em 4em 2em 1fr;
-  grid-template-columns: 1fr 2em;
+  grid-template-columns: 72px 1fr 2em;
   padding: 0px;
   text-align: center;
   z-index: 99999;
@@ -62,9 +54,28 @@ kallaxLogo {
   background-color: transparent;
   color: white;
   padding: 0em 2em 0px 0px;
-  grid-area: 1/1/3/2;
+  grid-area: 1/1/3/3;
   align-self: center;
   text-align: right;
+}
+
+#kallax-x {
+  text-align: right;
+  cursor: pointer;
+  color: white;
+  align-self: end;
+  margin-right: 12px;
+  grid-area: 1/3/2/4;
+}
+
+#kallax-logo {
+  grid-area: 1/1/3/2;
+  width: 64px;
+  height: 64px;
+  align-self: center;
+  justify-self: end;
+  background-image: url("chrome-extension://__MSG_@@extension_id__/images/kallax-logo.png");
+  background-size: cover;
 }
 
 #kallax-body {
@@ -73,14 +84,14 @@ kallaxLogo {
   border-radius: 0px 0px 10px 10px;
   padding: 1em 2em 2em 2em;
   text-align: left;
-  grid-area: 4/1/5/3;
+  grid-area: 4/1/5/4;
 }
 
 #kallax-footer {
   background-color: white;
   display: flex;
   flex-direction: row-reverse;
-  grid-area: 3/1/4/3;
+  grid-area: 3/1/4/4;
 }
 
 #kallax-title {

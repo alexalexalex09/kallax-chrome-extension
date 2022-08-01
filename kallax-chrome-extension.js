@@ -414,6 +414,7 @@ function showLoginWindow(error) {
       <div id="kallax-shadow"></div>
       <div id="kallax-menu-container">
         <div id="kallax-x">X</div>
+        <div id="kallax-logo"></div>
         <div id="kallax-header">
           <div id="kallax-title">Login to Kallax</div>
         </div>
@@ -497,6 +498,7 @@ function showErrorWindow(code, message) {
       <div id="kallax-shadow"></div>
       <div id="kallax-menu-container">
         <div id="kallax-x">X</div>
+        <div id="kallax-logo"></div>
         <div id="kallax-header">
           <div id="kallax-title">Error</div>
         </div>
@@ -543,6 +545,7 @@ function addKallaxMenu(title, self, friends, id) {
       <div id="kallax-shadow"></div>
       <div id="kallax-menu-container">
         <div id="kallax-x">X</div>
+        <div id="kallax-logo"></div>
         <div id="kallax-header">
           <div id="kallax-title">${title}</div>
         </div>
@@ -618,6 +621,7 @@ function showSettings() {
       <div id="kallax-shadow"></div>
       <div id="kallax-menu-container">
         <div id="kallax-x">X</div>
+        <div id="kallax-logo"></div>
         <div id="kallax-header">
           <div id="kallax-title">Extension Settings</div>
         </div>
