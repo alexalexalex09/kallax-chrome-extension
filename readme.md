@@ -5,9 +5,8 @@
 ### Features:
 * Indicator on BGG and BGA sites to 
   * Quick add to Kallax.io collection
-  * show whether each game is owned by you or a friend
+  * Show whether each game is owned by you and/or a friend
+  * Add/remove a game from your Kallax.io collection
+  * Navigate to kallax.io
 
-* Extension menu to 
-  * add games on the BGG and BGA sites to Kallax
-  * create a poll
-  * go to Kallax.io
+_note: this extension is not an official project of kallax.io_
