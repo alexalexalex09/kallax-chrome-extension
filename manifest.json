@@ -1,7 +1,7 @@
 {
-  "name": "Kallax",
+  "name": "Kallax Helper Extension",
   
-  "version": "0.1.0",
+  "version": "0.1.1",
   
   "description": "Helper extension for Kallax.io",
   
@@ -9,7 +9,7 @@
 
   "incognito": "split",
   
-  "permissions": ["storage", "tabs"],
+  "permissions": ["storage"],
   "host_permissions": ["https://www.boardgamegeek.com/*", "https://boardgamegeek.com/*", "https://boardgameatlas.com/*", "https://www.boardgameatlas.com/*"],
   "content_scripts": [
     {
