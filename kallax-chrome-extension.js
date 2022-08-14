@@ -55,9 +55,7 @@ const BGGWhiteList = [
   /*".hotness-item",*/ //This doesn't look right when adding icons
 ];
 
-const BGAWhiteList = [
-  /*".game-item.subtle-link-area>a", "#game-info h1"*/
-];
+const BGAWhiteList = [".game-item.subtle-link-area>a", "#game-info h1"];
 
 //Uncomment to clear Chrome storage
 //chrome.storage.sync.clear();
@@ -163,6 +161,8 @@ function getKallaxInfo(title, id) {
           .then(function (response) {
             if (response.status < 200 || response.status > 299) {
               var ret = { error: true, code: response.status };
+              var httpError = ret;
+              console.log(JSON.stringify(httpError, null, 4));
               switch (response.status) {
                 case 500:
                   ret.message =
@@ -184,6 +184,8 @@ function getKallaxInfo(title, id) {
           })
           .then(function (data) {
             if (data.error) {
+              var error = data;
+              console.log(JSON.stringify(error, null, 4));
               reject(data);
             } else {
               const response = {
@@ -191,10 +193,13 @@ function getKallaxInfo(title, id) {
                 friends: data.friends,
                 kallaxId: data.game.id,
               };
+              console.log(JSON.stringify(data, null, 4));
               resolve(response);
             }
           })
           .catch((res) => {
+            var caughtError = res.toString();
+            console.log(JSON.stringify(caughtError, null, 4));
             reject({ error: true, code: 0, message: res.toString() });
           });
       }
@@ -220,6 +225,8 @@ function kallaxFetch(request, method) {
         fetch(request, options)
           .then((response) => response.json())
           .then((data) => {
+            var kallaxFetchResponse = data;
+            console.log(JSON.stringify(kallaxFetchResponse, null, 4));
             resolve(data);
           });
       }
@@ -275,7 +282,7 @@ function addToKallax(id) {
 
 function showKallaxMenuError(message, error) {
   document.querySelector("#kallax-error").innerHTML =
-    message + document.querySelector("#kallax-error").innerHTML;
+    message + "..." + document.querySelector("#kallax-error").innerHTML;
   document.querySelector("#kallax-error-expand").innerHTML = error;
 }
 
@@ -430,7 +437,7 @@ function showLoginWindow(error) {
           </div>
           <div id="kallax-error">${
             error
-              ? "The previous login attempt failed<div id='kallax-error-expand' class='kallax-hidden'>" +
+              ? "The previous login attempt failed...<div id='kallax-error-expand' class='kallax-hidden'>" +
                 error +
                 "</div>"
               : ""
@@ -509,7 +516,7 @@ function showErrorWindow(code, message) {
           <div id="kallax-profile-id">
             <div id="kallax-menu-description">There was an error retrieving this game.</div>
             <div id="kallax-error">
-              ${message}
+              ${message}...
               <div id='kallax-error-expand' class='kallax-hidden'>Code:${code}</div>
             </div>
           </div>          
@@ -669,7 +676,7 @@ function showKallaxMenu(e) {
       addKallaxMenu(title, res.self, res.friends, id);
     })
     .catch(function (error) {
-      console.log({ error });
+      console.log(JSON.stringify(error, null, 4));
       switch (error.code) {
         case 401:
           showLoginWindow();

@@ -156,6 +156,11 @@ kallaxLogo {
   margin-bottom: .5em;
 }
 
+#kallax-friends {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
 #kallax-me, #kallax-friends-title {
   font-size: 1.2em;
   margin-top: 0.2em;
