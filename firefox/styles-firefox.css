@@ -1,0 +1,11 @@
+.kallaxLogoImage {
+    background-image: url("moz-extension://__MSG_@@extension_id__/images/kallax-logo-32.png");
+  }
+
+.kallaxLogoImageFull {
+  background-image: url("moz-extension://__MSG_@@extension_id__/images/kallax-logo.png");
+}
+
+.kallaxLogoBackground {
+  background-image: url("moz-extension://__MSG_@@extension_id__/images/background.png");
+}
